@@ -142,8 +142,19 @@ module dcache (
         if (state == S_RECV && rvalid) $display("[R] rcnt=%0d data=%h", r_cnt, rdata);
         if (state == S_WRITE) $display("[FWR] line=%h buf=%h", miss_addr, line_buf[127:0]);
         if (miss_addr[31:4]==28'h2a) $display("[F2A] st=%0d miss=%h", state, miss_addr);
-        if (mem_addr[31:4]==28'h5c || ex_addr[31:4]==28'h5c)
-
+    end
+`endif
+`ifdef DCDEBUG
+    always @(posedge clk) begin
+        if (state == S_WRITE) $display("[FWR] line=%h wdata=%h", fill_line_addr, line_buf[127:0]);
+        if (state == S_RECV && rvalid) $display("[FRCV] rcnt=%0d data=%h", r_cnt, rdata);
+    end
+    reg [31:0] dbg_cyc;
+    always @(posedge clk) begin
+        if (reset) dbg_cyc <= 0; else dbg_cyc <= dbg_cyc + 1;
+        if (dbg_cyc >= 1048 && dbg_cyc <= 1058)
+            $display("[DC] cyc=%0d state=%h index=%0d we=%d wdata=%h rdata=%h hold=%d ex=%h mem=%h",
+                dbg_cyc, state, index, we, wdata, line_rdata, hold, ex_addr, mem_addr);
     end
 `endif
     always @(posedge clk) begin

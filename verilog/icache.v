@@ -15,7 +15,9 @@ module icache (
     input  wire [31:0] pc_id,
     input  wire        front_stall,
     output wire [31:0] instr,
+    output wire [31:0] instr2,
     output wire        hit,
+    output wire        hit2,
     input  wire        miss,        // 组合输入：ID 指令缺失（仅 IDLE 时有效）
     output wire        busy,
     // AXI 读通道（经顶层仲裁器共享）
@@ -89,6 +91,9 @@ module icache (
 
     assign hit   = init_done && (tag_rdata == {1'b1, pc_id[31:12]});
     assign instr = data_rdata[{pc_id[3:2], 5'b0} +: 32];
+    // 第二字（同 line 内相邻字；跨 line 时无效）
+    assign instr2 = data_rdata[{pc_id[3:2] + 2'd1, 5'b0} +: 32];
+    assign hit2   = hit && (pc_id[3:2] != 2'b11);
 
     always @(posedge clk) begin
         if (reset) begin
