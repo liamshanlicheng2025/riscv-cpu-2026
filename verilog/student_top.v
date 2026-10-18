@@ -1,4 +1,3 @@
-`define OOO_DEBUG
 // ============================================================================
 // student_top.v —— 双发射 Tomasulo + ROB 乱序 RV32IM CPU
 //
@@ -575,7 +574,7 @@ module student_top (
 
     // ==================== 重命名（两槽） ====================
     wire [5:0] alloc0 = fl[fl_head[5:0]];
-    wire [5:0] alloc1 = fl[fl_head[5:0] + 6'd1];
+    wire [5:0] alloc1 = fl[fl_head[5:0] + {5'b0, d0_has_pdst}];
 
     // CDB 旁路匹配（dispatch 用）
     wire [5:0] r0_s1 = RAT[d0_rs1];
@@ -644,7 +643,8 @@ module student_top (
             assign candL[gv] = rdy && rs_is_load[gv] && mob_head_is_me && ld_port_free &&
                                !(flush && is_young(rs_tag[gv], flush_idx, rob_tail[4:0]));
             assign cand0[gv] = rdy && !rs_is_load[gv] &&
-                               (rs_is_div[gv] ? (!div_busy && !div_done_bcast) : !div_done_bcast);
+                               (rs_is_div[gv] ? (!div_busy && !div_done_bcast) : !div_done_bcast) &&
+                               !(flush && is_young(rs_tag[gv], flush_idx, rob_tail[4:0]));
             assign cand1[gv] = rdy && !rs_is_load[gv] && !rs_is_store[gv] &&
                                !rs_is_branch[gv] && !rs_is_jalr[gv] &&
                                !rs_is_mul[gv] && !rs_is_div[gv] &&
