@@ -1,4 +1,5 @@
-// dcache.v —— 直接映射数据 cache：1024 行 x 16B，写穿 + store miss 不分配
+// dcache.v —— 参数化数据 cache：LINES 行 x 16B，WAYS 路组相联
+// 写穿 + store-miss 不分配，关键字优先填充，顺带顺序预取下一行。
 //
 // 访问时序（与流水线配合）：
 //   EX 拍：访存指令用组合 ALU 地址（ex_addr）发起 tag+data SRAM 读；
@@ -9,7 +10,10 @@
 // 填充前必须等 store buffer 中落在目标 line 内的写全部完成（sb_clear），
 // 否则 AXI 读可能读到尚未服务的旧数据。
 // 填充顺带顺序预取下一行（要求预取行也无 pending store：sb_clear2）。
-module dcache (
+module dcache #(
+    parameter LINES = 1024,         // 总行数（容量 = LINES * 16B）
+    parameter WAYS  = 1             // 相联度：1 或 2
+) (
     input  wire        clk,
     input  wire        reset,
     input  wire [31:0] ex_addr,      // EX 拍组合地址
@@ -40,6 +44,11 @@ module dcache (
     input  wire        rvalid,
     output wire        last_r
 );
+    localparam SETS    = LINES / WAYS;
+    localparam IBITS   = (SETS <= 1) ? 1 : $clog2(SETS);
+    localparam TAGW    = 32 - 4 - IBITS;
+    localparam WAY_BITS = (WAYS <= 1) ? 1 : $clog2(WAYS);
+
     // 独热编码：状态译码（fillwrite/busy 等广播信号）直接由单 FF 输出，
     // 避免多 bit 译码形成的高扇出深锥
     localparam S_IDLE    = 7'b0000001;
@@ -50,9 +59,6 @@ module dcache (
     localparam S_WRITE3  = 7'b0100000;
     localparam S_REFRESH = 7'b1000000;
     localparam S_INIT_ST = 8'b10000000;   // 上电逐行清 valid（SRAM 无复位）
-
-    localparam IBITS = 10;                 // 1024 行（16KB）
-    localparam TAGW  = 32 - 4 - IBITS;     // tag 宽度 18
 
     reg [7:0]   state;
     reg [31:0]  miss_addr;
@@ -70,7 +76,7 @@ module dcache (
     assign fillwrite = state[6] | state[5] | state[4] | state[3];  // WRITE*/REFRESH
     // 填充期间提交 store 会打破 sb_clear 门控（早期释放后流水线已恢复），
     // 命中填充行/预取行的 store 必须等填充完成再按 hit 更新 cache。
-    // 用行索引（10 bit）比较：跨 16KB 的别名只会造成无害的假停顿
+    // 用 set 索引比较：跨 set 的别名只会造成无害的假停顿
     assign fill_clash = (state != S_IDLE) &&
                         ((mem_addr[3+IBITS:4] == miss_addr[3+IBITS:4]) ||
                          (do_pref  && (mem_addr[3+IBITS:4] == line2_addr[3+IBITS:4])) ||
@@ -87,54 +93,93 @@ module dcache (
 
     // ---- SRAM 端口 ----
     // data：fill 写 > store 写 > hold/EX 读
-    // tag ：fill 写 > hold/EX 读（store 写不占 tag 口——EX 的 store 还要继续读 tag）
+    // tag ：fill 写 > hold/EX 读
     wire we1 = (state == S_WRITE);
     wire we2 = (state == S_WRITE2) && do_pref;
     wire we3 = (state == S_WRITE3) && do_pref2;
     wire fill_wr = we1 || we2 || we3;
     wire [31:0] fill_line_addr = we2 ? line2_addr : we3 ? line3_addr : miss_addr;
     // fill_wr 的组合锥要驱动 data SRAM 的 wdata/wmask/addr/we 全部 mux
-    //（16 个 lane 共享，合计上千负载），ABC 不插缓冲树，曾造成单级 17ns。
+    //（多个 lane 共享，合计上千负载），ABC 不插缓冲树，曾造成单级 17ns。
     // 手工复制多份（keep 防止被合并），每份只驱动一个消费组：
     (* keep *) wire fill_wr_a = fill_wr;              // data addr mux
     (* keep *) wire fill_wr_t = fill_wr;              // tag addr/we
     (* keep *) wire fill_wr_e = fill_wr;              // data we
     (* keep *) wire fill_wr_m = fill_wr;              // wmask mux
-    (* keep *) wire [15:0] fill_wr_w = {16{fill_wr}}; // wdata mux（按字节 lane 分组）
-    wire we      = fill_wr_e || store_wr;
+    (* keep *) wire [15:0] fill_wr_w = {16{fill_wr}}; // wdata mux（按 lane 分组）
     wire [IBITS-1:0] index = fill_wr_a ? fill_line_addr[3+IBITS:4]
                      : (store_wr || hold) ? mem_addr[3+IBITS:4]
                      : ex_addr[3+IBITS:4];
     wire [IBITS-1:0] tag_index = fill_wr_t ? fill_line_addr[3+IBITS:4]
                      : hold ? mem_addr[3+IBITS:4]
                      : ex_addr[3+IBITS:4];
-    // 填充三个写状态依次消耗 line_buf 低 128 位，每写一段整体右移 128 位
-    //（见 FSM），wdata 只剩 fill/store 二路选择，并按 lane 分组驱动
-    wire [127:0] wdata;
-    genvar lane;
+    wire [IBITS-1:0] fill_set = fill_line_addr[3+IBITS:4];
+    wire [TAGW-1:0]  fill_tag = fill_line_addr[31:4+IBITS];
+
+    // ---- 替换策略：2 路时每 set 一个 LRU 位；1 路时固定 way 0 ----
+    reg lru [0:SETS-1];
+    function [WAY_BITS-1:0] victim_of;
+        input [IBITS-1:0] set;
+        begin
+            if (WAYS == 1) victim_of = {WAY_BITS{1'b0}};
+            else           victim_of = lru[set];
+        end
+    endfunction
+    wire [WAY_BITS-1:0] fill_victim = victim_of(fill_set);
+
+    // valid 位并入 tag SRAM（最高位）
+    wire init_active = (state == S_INIT_ST);
+    wire [TAGW:0] tag_rdata [0:WAYS-1];
+    wire [127:0]  data_rdata [0:WAYS-1];
+    wire [WAYS-1:0] way_hit;
+
+    genvar wi;
     generate
-        for (lane = 0; lane < 16; lane = lane + 1) begin : g_wdata
-            assign wdata[lane*8 +: 8] = fill_wr_w[lane] ? line_buf[lane*8 +: 8]
-                                                        : store_wdata[lane*8 +: 8];
+        for (wi = 0; wi < WAYS; wi = wi + 1) begin : g_way
+            wire fill_we  = fill_wr_e && (fill_victim == wi);
+            wire store_we = store_wr && way_hit[wi];
+            wire way_we   = fill_we || store_we;
+            wire [127:0] way_wdata = fill_we ? line_buf[127:0] : store_wdata;
+            wire [15:0]  way_wmask = fill_we ? 16'hFFFF : store_wmask;
+            wire [TAGW:0] rd_tag;
+            wire [127:0]  rd_data;
+
+            sram_fakeram #(.DEPTH(SETS), .WIDTH(TAGW+1), .WRITE_GRANULARITY(TAGW+1)) tag_ram (
+                .clk(clk), .en(1'b1), .we(fill_wr_t && (fill_victim == wi) || init_active), .wmask(1'b1),
+                .addr(init_active ? init_cnt : tag_index),
+                .wdata(init_active ? {(TAGW+1){1'b0}} : {1'b1, fill_tag}), .rdata(rd_tag));
+
+            sram_fakeram #(.DEPTH(SETS), .WIDTH(128), .WRITE_GRANULARITY(8)) data_ram (
+                .clk(clk), .en(1'b1), .we(way_we), .wmask(way_wmask),
+                .addr(index), .wdata(way_wdata), .rdata(rd_data));
+
+            assign tag_rdata[wi]  = rd_tag;
+            assign data_rdata[wi] = rd_data;
+            assign way_hit[wi]    = init_done && (rd_tag == {1'b1, mem_addr[31:4+IBITS]});
         end
     endgenerate
-    wire [15:0]  wmask = fill_wr_m ? 16'hFFFF : store_wmask;
-    wire [TAGW-1:0] tag_wdata = fill_line_addr[31:4+IBITS];
 
-    // valid 位并入 tag SRAM（最高位）：消除 1024 项 reg 阵列的写译码/读 mux
-    wire init_active = (state == S_INIT_ST);
-    wire [TAGW:0] tag_rdata;
+    assign hit = |way_hit;
 
-    sram_fakeram #(.DEPTH(1<<IBITS), .WIDTH(TAGW+1), .WRITE_GRANULARITY(TAGW+1)) tag_ram (
-        .clk(clk), .en(1'b1), .we(fill_wr_t || init_active), .wmask(1'b1),
-        .addr(init_active ? init_cnt : tag_index),
-        .wdata(init_active ? {(TAGW+1){1'b0}} : {1'b1, tag_wdata}), .rdata(tag_rdata));
+    reg [127:0] data_sel;
+    integer wj;
+    always @(*) begin
+        data_sel = data_rdata[0];
+        for (wj = 0; wj < WAYS; wj = wj + 1)
+            if (way_hit[wj]) data_sel = data_rdata[wj];
+    end
+    assign line_rdata = data_sel;
 
-    sram_fakeram #(.DEPTH(1<<IBITS), .WIDTH(128), .WRITE_GRANULARITY(8)) data_ram (
-        .clk(clk), .en(1'b1), .we(we), .wmask(wmask),
-        .addr(index), .wdata(wdata), .rdata(line_rdata));
-
-    assign hit = init_done && (tag_rdata == {1'b1, mem_addr[31:4+IBITS]});
+    // LRU 更新：命中时下次替换另一路；填充时下次替换当前路的另一路
+    integer lj;
+    always @(posedge clk) begin
+        if (reset) begin
+            for (lj = 0; lj < SETS; lj = lj + 1) lru[lj] = 1'b0;
+        end else begin
+            if (hit) lru[mem_addr[3+IBITS:4]] <= way_hit[0];
+            if (fill_wr) lru[fill_set] <= ~fill_victim[0];
+        end
+    end
 
 `ifdef DEBUG
     always @(posedge clk) begin
@@ -142,19 +187,6 @@ module dcache (
         if (state == S_RECV && rvalid) $display("[R] rcnt=%0d data=%h", r_cnt, rdata);
         if (state == S_WRITE) $display("[FWR] line=%h buf=%h", miss_addr, line_buf[127:0]);
         if (miss_addr[31:4]==28'h2a) $display("[F2A] st=%0d miss=%h", state, miss_addr);
-    end
-`endif
-`ifdef DCDEBUG
-    always @(posedge clk) begin
-        if (state == S_WRITE) $display("[FWR] line=%h wdata=%h", fill_line_addr, line_buf[127:0]);
-        if (state == S_RECV && rvalid) $display("[FRCV] rcnt=%0d data=%h", r_cnt, rdata);
-    end
-    reg [31:0] dbg_cyc;
-    always @(posedge clk) begin
-        if (reset) dbg_cyc <= 0; else dbg_cyc <= dbg_cyc + 1;
-        if (dbg_cyc >= 1048 && dbg_cyc <= 1058)
-            $display("[DC] cyc=%0d state=%h index=%0d we=%d wdata=%h rdata=%h hold=%d ex=%h mem=%h",
-                dbg_cyc, state, index, we, wdata, line_rdata, hold, ex_addr, mem_addr);
     end
 `endif
     always @(posedge clk) begin
@@ -169,7 +201,7 @@ module dcache (
             if (crit_consume) crit_valid <= 1'b0;
             case (state)
                 S_INIT_ST: begin
-                    if (init_cnt == {(IBITS){1'b1}}) begin
+                    if (init_cnt == SETS - 1) begin
                         state     <= S_IDLE;
                         init_done <= 1'b1;
                     end else
@@ -180,8 +212,8 @@ module dcache (
                     ar_cnt    <= 4'd0;
                     crit_valid <= 1'b0;
                     // 预取至多两行：要求预取行无 pending store 且不越出 RAM
-                    do_pref   <= sb_clear2 && ((mem_addr + 32'd16) < 32'h10000000);
-                    do_pref2  <= sb_clear2 && sb_clear3 && ((mem_addr + 32'd32) < 32'h10000000);
+                    do_pref   <= (WAYS == 1) && sb_clear2 && ((mem_addr + 32'd16) < 32'h10000000);
+                    do_pref2  <= (WAYS == 1) && sb_clear2 && sb_clear3 && ((mem_addr + 32'd32) < 32'h10000000);
                     state     <= S_REQ;
                 end
                 S_REQ: if (grant && ar_ready) begin
@@ -189,7 +221,7 @@ module dcache (
                         state <= S_RECV;
                         r_cnt <= 3'd0;
                     end
-                    ar_cnt <= ar_cnt + 3'd1;
+                    ar_cnt <= ar_cnt + 4'd1;
                 end
                 S_RECV: if (rvalid) begin
                     // 前 4 个响应按 (miss_word+rcnt)%4 写回行内位置，其余按行序

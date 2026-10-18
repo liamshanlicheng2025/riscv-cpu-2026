@@ -25,16 +25,18 @@ module storebuf (
     input  wire        wready,
     input  wire        bvalid
 );
-    localparam DEPTH = 8;
+    parameter DEPTH = 8;
+    localparam IDXW = (DEPTH <= 1) ? 1 : $clog2(DEPTH);
+    localparam PTRW = IDXW + 1;
 
     reg [31:0] addr_q [0:DEPTH-1];
     reg [31:0] data_q [0:DEPTH-1];
     reg [3:0]  strb_q [0:DEPTH-1];
-    reg [3:0]  head, tail, issue;   // 多 1 位用于计数
+    reg [PTRW-1:0] head, tail, issue;   // 多 1 位用于计数
     reg        issuing;
 
-    wire [3:0] cnt = tail - head;
-    assign full = cnt[3];   // cnt == 8
+    wire [PTRW-1:0] cnt = tail - head;
+    assign full = (cnt == DEPTH);
 
     integer k;
     always @(*) begin
@@ -43,9 +45,9 @@ module storebuf (
         chk_clear3 = 1'b1;
         for (k = 0; k < DEPTH; k = k + 1)
             if (k < cnt) begin
-                if (addr_q[(head[2:0] + k[2:0])][31:4] == chk_line)  chk_clear  = 1'b0;
-                if (addr_q[(head[2:0] + k[2:0])][31:4] == chk_line2) chk_clear2 = 1'b0;
-                if (addr_q[(head[2:0] + k[2:0])][31:4] == chk_line3) chk_clear3 = 1'b0;
+                if (addr_q[(head[IDXW-1:0] + k[IDXW-1:0])][31:4] == chk_line)  chk_clear  = 1'b0;
+                if (addr_q[(head[IDXW-1:0] + k[IDXW-1:0])][31:4] == chk_line2) chk_clear2 = 1'b0;
+                if (addr_q[(head[IDXW-1:0] + k[IDXW-1:0])][31:4] == chk_line3) chk_clear3 = 1'b0;
             end
     end
 
@@ -54,36 +56,36 @@ module storebuf (
                       (!awvalid || (awvalid && awready)) &&
                       (!wvalid  || (wvalid  && wready));
 
-    wire [3:0] start_i = (issuing && issue_done) ? issue + 4'd1 : issue;
+    wire [PTRW-1:0] start_i = (issuing && issue_done) ? issue + 1'b1 : issue;
     // 可启动：队列中还有未发射项，或本拍正好多压入一项
     wire       start   = (issuing && !issue_done) ? 1'b0
                        : (start_i != tail) || push;
     // 启动项数据：start_i==tail 表示就是本拍 push 的项（尚未写入队列）
-    wire [31:0] start_addr = (start_i == tail) ? push_addr : addr_q[start_i[2:0]];
-    wire [31:0] start_data = (start_i == tail) ? push_data : data_q[start_i[2:0]];
-    wire [3:0]  start_strb = (start_i == tail) ? push_strb : strb_q[start_i[2:0]];
+    wire [31:0] start_addr = (start_i == tail) ? push_addr : addr_q[start_i[IDXW-1:0]];
+    wire [31:0] start_data = (start_i == tail) ? push_data : data_q[start_i[IDXW-1:0]];
+    wire [3:0]  start_strb = (start_i == tail) ? push_strb : strb_q[start_i[IDXW-1:0]];
 
     always @(posedge clk) begin
         if (reset) begin
-            head    <= 4'd0;
-            tail    <= 4'd0;
-            issue   <= 4'd0;
+            head    <= {PTRW{1'b0}};
+            tail    <= {PTRW{1'b0}};
+            issue   <= {PTRW{1'b0}};
             issuing <= 1'b0;
             awvalid <= 1'b0;
             wvalid  <= 1'b0;
         end else begin
-            if (bvalid) head <= head + 4'd1;
+            if (bvalid) head <= head + 1'b1;
             if (push) begin
-                addr_q[tail[2:0]] <= push_addr;
-                data_q[tail[2:0]] <= push_data;
-                strb_q[tail[2:0]] <= push_strb;
-                tail <= tail + 4'd1;
+                addr_q[tail[IDXW-1:0]] <= push_addr;
+                data_q[tail[IDXW-1:0]] <= push_data;
+                strb_q[tail[IDXW-1:0]] <= push_strb;
+                tail <= tail + 1'b1;
             end
             if (issuing && !issue_done) begin
                 if (awvalid && awready) awvalid <= 1'b0;
                 if (wvalid && wready)  wvalid  <= 1'b0;
             end else begin
-                if (issuing) issue <= issue + 4'd1;   // 当前项发完，推进
+                if (issuing) issue <= issue + 1'b1;   // 当前项发完，推进
                 if (start) begin
                     issuing <= 1'b1;
                     awvalid <= 1'b1;

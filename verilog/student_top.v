@@ -11,6 +11,8 @@
 // 访存：load 只有在 MOB 头才能发（保守）；store 提交时两级流水写 d-cache+写穿
 // ============================================================================
 
+`include "verilog/params.vh"
+
 module student_top (
     input  wire        clock,
     input  wire        reset,
@@ -50,10 +52,25 @@ module student_top (
                ALU_SLTU = 4'd4, ALU_XOR = 4'd5, ALU_SRL = 4'd6, ALU_SRA = 4'd7,
                ALU_OR  = 4'd8, ALU_AND = 4'd9, ALU_PASSB = 4'd10;
 
-    localparam RSN = 16;
-    localparam ROBN = 32;
-    localparam MOBN = 16;
-    localparam QN = 4;                 // 取指队列深度
+    // ==================== 可配置微架构参数 ====================
+    parameter ISSUE_WIDTH = `CPU_ISSUE_WIDTH;      // 发射宽度：1 或 2
+    parameter ROB_DEPTH   = `CPU_ROB_DEPTH;     // ROB 有效深度：16/32
+    parameter PRF_SIZE    = `CPU_PRF_SIZE;     // 可分配物理寄存器数：64/96/128
+    parameter RS_DEPTH    = `CPU_RS_DEPTH;     // 保留站有效深度：8/16
+    parameter MOB_DEPTH   = `CPU_MOB_DEPTH;     // MOB 有效深度：8/16
+    parameter Q_DEPTH     = `CPU_Q_DEPTH;      // 取指队列有效深度：2/4
+    parameter ICACHE_LINES = `CPU_ICACHE_LINES;   // I-Cache 行数
+    parameter DCACHE_LINES = `CPU_DCACHE_LINES;  // D-Cache 行数
+    parameter ICACHE_WAYS  = `CPU_ICACHE_WAYS;     // I-Cache 相联度
+    parameter DCACHE_WAYS  = `CPU_DCACHE_WAYS;     // D-Cache 相联度
+    parameter STORE_BUF_DEPTH = `CPU_STORE_BUF_DEPTH;  // Store Buffer 深度
+
+    localparam RSN = 16;            // 物理 RS 槽位数
+    localparam ROBN = 32;           // 物理 ROB 槽位数
+    localparam MOBN = 16;           // 物理 MOB 槽位数
+    localparam QN = 4;              // 物理取指队列槽位数
+    localparam FATN = 32;           // 物理 FAT 表项数
+    localparam ISSUE2 = (ISSUE_WIDTH >= 2);
 
     function [31:0] load_extend;
         input [31:0] word;
@@ -156,7 +173,6 @@ module student_top (
     localparam BT_RET = 2'd2;
 
     // ==================== FAT（32 项全相联，双读口） ====================
-    localparam FATN = 32;
     reg [31:0] fat_pc [0:FATN-1];
     reg [31:0] fat_target [0:FATN-1];
     reg [1:0]  fat_type [0:FATN-1];
@@ -327,14 +343,14 @@ module student_top (
 
     // 队列空位（本拍弹出后）
     wire [1:0] pop_n;                 // 本拍弹出条数（0/1/2），后文定义
-    wire [2:0] q_space = QN - (q_cnt - {1'b0, pop_n});
+    wire [2:0] q_space = Q_DEPTH - (q_cnt - {1'b0, pop_n});
     wire       f2_line_ok = (pc_f[3:2] != 2'b11);
     wire [1:0] fw_avail = f2_line_ok ? 2'd2 : 2'd1;
 
     wire [1:0] push_m = (q_space == 3'd0) ? 2'd0 :
                         f1_fat_taken ? 2'd1 :
                         (q_space == 3'd1) ? 2'd1 :
-                        fw_avail;
+                        (ISSUE2 ? fw_avail : 2'd1);
     wire can_issue_read = !pend_v && (push_m != 2'd0) && !ic_miss && !ic_busy;
 
     wire [31:0] pc_f_next = f1_fat_taken ? f1_fat_target :
@@ -354,13 +370,13 @@ module student_top (
     wire        f2_pv  = pc_f[2] ? pv0 : pv1;
 
     // ==================== 后端结构 ====================
-    reg [5:0]  RAT  [0:31];
-    reg [5:0]  snap_rat [0:7][0:31];
+    reg [6:0]  RAT  [0:31];
+    reg [6:0]  snap_rat [0:7][0:31];
     reg [3:0]  snap_head, snap_tail;
-    reg [31:0] prf  [0:63];
-    reg [63:0] prf_ready;
-    reg [5:0]  fl [0:63];
-    reg [6:0]  fl_head, fl_tail;
+    reg [31:0] prf  [0:127];
+    reg [127:0] prf_ready;
+    reg [6:0]  fl [0:127];
+    reg [7:0]  fl_head, fl_tail;
 
     // ROB
     reg        rob_done      [0:ROBN-1];
@@ -371,9 +387,9 @@ module student_top (
     reg        rob_pred_taken[0:ROBN-1];
     reg [4:0]  rob_rd        [0:ROBN-1];
     reg        rob_has_pdst  [0:ROBN-1];
-    reg [5:0]  rob_pdst      [0:ROBN-1];
-    reg [5:0]  rob_pold      [0:ROBN-1];
-    reg [6:0]  rob_fl_head   [0:ROBN-1];
+    reg [6:0]  rob_pdst      [0:ROBN-1];
+    reg [6:0]  rob_pold      [0:ROBN-1];
+    reg [7:0]  rob_fl_head   [0:ROBN-1];
     reg [4:0]  rob_mob_tail  [0:ROBN-1];
     reg [5:0]  rob_next_tail [0:ROBN-1];
     reg [3:0]  rob_snap_idx  [0:ROBN-1];
@@ -382,8 +398,8 @@ module student_top (
 
     wire        rob_nonempty = (rob_head != rob_tail);
     wire [5:0]  rob_cnt      = rob_tail - rob_head;
-    wire        rob_full1    = (rob_cnt >= 6'd30);   // 留 2 条位置
-    wire        rob_full2    = (rob_cnt >= 6'd29);
+    wire        rob_full1    = (rob_cnt >= ROB_DEPTH - 2);   // 留 2 条位置
+    wire        rob_full2    = (rob_cnt >= ROB_DEPTH - 3);
 
     // RS
     reg        rs_valid   [0:RSN-1];
@@ -405,13 +421,13 @@ module student_top (
     reg        rs_pred_taken [0:RSN-1];
     reg [31:0] rs_pred_target[0:RSN-1];
     reg [1:0]  rs_bht     [0:RSN-1];
-    reg [5:0]  rs_pdst    [0:RSN-1];
+    reg [6:0]  rs_pdst    [0:RSN-1];
     reg        rs_has_pdst[0:RSN-1];
     reg [4:0]  rs_mob_ptr [0:RSN-1];
-    reg [5:0]  rs_s1_tag  [0:RSN-1];
+    reg [6:0]  rs_s1_tag  [0:RSN-1];
     reg        rs_s1_rdy  [0:RSN-1];
     reg [31:0] rs_s1_val  [0:RSN-1];
-    reg [5:0]  rs_s2_tag  [0:RSN-1];
+    reg [6:0]  rs_s2_tag  [0:RSN-1];
     reg        rs_s2_rdy  [0:RSN-1];
     reg [31:0] rs_s2_val  [0:RSN-1];
 
@@ -422,9 +438,10 @@ module student_top (
             assign rs_valid_vec[gv] = rs_valid[gv];
         end
     endgenerate
-    wire [4:0] rs_free_cnt = RSN - $countones(rs_valid_vec);
-    wire rs_full1 = (rs_free_cnt < 5'd1);
-    wire rs_full2 = (rs_free_cnt < 5'd2);
+    wire [5:0] rs_free_cnt = RSN - $countones(rs_valid_vec);
+    wire [5:0] rs_used_cnt = $countones(rs_valid_vec);
+    wire rs_full1 = (rs_used_cnt >= RS_DEPTH);
+    wire rs_full2 = (rs_used_cnt >= RS_DEPTH - 1);
 
     // MOB
     reg [4:0]  mob_tag     [0:MOBN-1];
@@ -437,20 +454,19 @@ module student_top (
 
     wire        mob_nonempty = (mob_head != mob_tail);
     wire [4:0]  mob_cnt      = mob_tail - mob_head;
-    wire        mob_full     = (mob_head[3:0] == mob_tail[3:0]) &&
-                               (mob_head[4] != mob_tail[4]);
+    wire        mob_full     = (mob_cnt >= MOB_DEPTH);
 
     // ==================== CDB ====================
     wire        cdbA_valid, cdbA_has;
-    wire [5:0]  cdbA_pdst;
+    wire [6:0]  cdbA_pdst;
     wire [4:0]  cdbA_tag;
     wire [31:0] cdbA_val;
     wire        cdbB_valid, cdbB_has;
-    wire [5:0]  cdbB_pdst;
+    wire [6:0]  cdbB_pdst;
     wire [4:0]  cdbB_tag;
     wire [31:0] cdbB_val;
     wire        cdb1_valid, cdb1_has;
-    wire [5:0]  cdb1_pdst;
+    wire [6:0]  cdb1_pdst;
     wire [4:0]  cdb1_tag;
     wire [31:0] cdb1_val;
 
@@ -466,7 +482,7 @@ module student_top (
 
     reg        ld_mem_valid;
     reg [4:0]  ld_mem_tag;
-    reg [5:0]  ld_mem_pdst;
+    reg [6:0]  ld_mem_pdst;
     reg        ld_mem_has;
     reg [31:0] ld_mem_addr;
     reg [2:0]  ld_mem_f3;
@@ -557,9 +573,9 @@ module student_top (
                 (!d0_mem || !mob_full) &&
                 (!dsp0_need_snap || !snap_full) &&
                 (!d0_has_pdst || (fl_free >= 7'd1));
-    wire can1_pre = can0 && (q_cnt > 3'd1) && !redir0_pre && !eff0_taken && !q0_control &&
+    wire can1_pre = ISSUE2 && can0 && (q_cnt > 3'd1) && !redir0_pre && !eff0_taken && !q0_control &&
                 !rs_full2 && !rob_full2 &&
-                (mob_cnt + nmem <= MOBN[4:0]) &&
+                (mob_cnt + nmem <= MOB_DEPTH) &&
                 (!dsp1_need_snap || !snap_full) &&
                 (fl_free >= {5'b0, npdst});
     assign redir0 = redir0_pre && can0;
@@ -570,22 +586,22 @@ module student_top (
                    (can1_pre ? 2'd2 : (can0 ? 2'd1 : 2'd0));
     wire can1 = (pop_n == 2'd2);
     wire dsp0_en = (pop_n >= 2'd1);
-    wire dsp1_en = (pop_n == 2'd2);
+    wire dsp1_en = ISSUE2 && (pop_n == 2'd2);
 
     // ==================== 重命名（两槽） ====================
-    wire [5:0] alloc0 = fl[fl_head[5:0]];
-    wire [5:0] alloc1 = fl[fl_head[5:0] + {5'b0, d0_has_pdst}];
+    wire [6:0] alloc0 = fl[fl_head[6:0]];
+    wire [6:0] alloc1 = fl[fl_head[6:0] + {6'b0, d0_has_pdst}];
 
     // CDB 旁路匹配（dispatch 用）
-    wire [5:0] r0_s1 = RAT[d0_rs1];
-    wire [5:0] r0_s2 = RAT[d0_rs2];
+    wire [6:0] r0_s1 = RAT[d0_rs1];
+    wire [6:0] r0_s2 = RAT[d0_rs2];
     wire       r1_s1_new = d0_has_pdst && (d1_rs1 == d0_rd);
     wire       r1_s2_new = d0_has_pdst && (d1_rs2 == d0_rd);
-    wire [5:0] r1_s1 = r1_s1_new ? alloc0 : RAT[d1_rs1];
-    wire [5:0] r1_s2 = r1_s2_new ? alloc0 : RAT[d1_rs2];
+    wire [6:0] r1_s1 = r1_s1_new ? alloc0 : RAT[d1_rs1];
+    wire [6:0] r1_s2 = r1_s2_new ? alloc0 : RAT[d1_rs2];
 
     function [31:0] pick_val;
-        input [5:0] tag;
+        input [6:0] tag;
         input       dummy;
         begin
             if (tag == 6'd0) pick_val = 32'b0;
@@ -596,7 +612,7 @@ module student_top (
         end
     endfunction
     function pick_rdy;
-        input [5:0] tag;
+        input [6:0] tag;
         begin
             pick_rdy = (tag == 6'd0) ||
                        (cdbA_valid && cdbA_has && cdbA_pdst == tag) ||
@@ -606,8 +622,8 @@ module student_top (
         end
     endfunction
 
-    wire [5:0] pold0 = RAT[d0_rd];
-    wire [5:0] pold1 = (d0_has_pdst && (d1_rd == d0_rd)) ? alloc0 : RAT[d1_rd];
+    wire [6:0] pold0 = RAT[d0_rd];
+    wire [6:0] pold1 = (d0_has_pdst && (d1_rd == d0_rd)) ? alloc0 : RAT[d1_rd];
 
     // RS 空槽选择（两个）
     integer di;
@@ -625,7 +641,7 @@ module student_top (
     wire        ld_port_free;
     wire        div_done_bcast;
     wire        cdb1_byp_valid = ld_resolved;
-    wire [5:0]  cdb1_byp_pdst  = ld_mem_pdst;
+    wire [6:0]  cdb1_byp_pdst  = ld_mem_pdst;
     wire        cdb1_byp_has   = ld_mem_has;
     wire [31:0] cdb1_byp_val   = ld_ext;
 
@@ -667,7 +683,7 @@ module student_top (
             if (cand1m[ii]) iss1_idx = ii[4:0];
     end
     assign iss0_fire = |cand0;
-    wire   iss1_fire = |cand1m;
+    wire   iss1_fire = ISSUE2 && |cand1m;
     wire   issL_fire = |candL;
 
     // port0 字段
@@ -688,7 +704,7 @@ module student_top (
     wire        iss0_pred_taken = rs_pred_taken[iss0_idx];
     wire [31:0] iss0_pred_target = rs_pred_target[iss0_idx];
     assign      iss0_bht     = rs_bht[iss0_idx];
-    wire [5:0]  iss0_pdst  = rs_pdst[iss0_idx];
+    wire [6:0]  iss0_pdst  = rs_pdst[iss0_idx];
     wire        iss0_has_pdst = rs_has_pdst[iss0_idx];
     wire [4:0]  iss0_mob_ptr = rs_mob_ptr[iss0_idx];
     wire [31:0] iss0_op1   = rs_s1_rdy[iss0_idx] ? rs_s1_val[iss0_idx] :
@@ -706,7 +722,7 @@ module student_top (
     wire        iss1_srca_pc  = rs_srca_pc[iss1_idx];
     wire        iss1_srcb_imm = rs_srcb_imm[iss1_idx];
     wire        iss1_wb_pc4  = rs_wb_pc4[iss1_idx];
-    wire [5:0]  iss1_pdst  = rs_pdst[iss1_idx];
+    wire [6:0]  iss1_pdst  = rs_pdst[iss1_idx];
     wire        iss1_has_pdst = rs_has_pdst[iss1_idx];
     wire [31:0] iss1_op1   = rs_s1_rdy[iss1_idx] ? rs_s1_val[iss1_idx] :
                              (cdb1_byp_valid && cdb1_byp_has && (cdb1_byp_pdst == rs_s1_tag[iss1_idx]))
@@ -727,7 +743,7 @@ module student_top (
     wire [4:0]  issL_tag  = rs_tag[issL_idx];
     wire [31:0] issL_imm  = rs_imm[issL_idx];
     wire [2:0]  issL_f3   = rs_f3[issL_idx];
-    wire [5:0]  issL_pdst = rs_pdst[issL_idx];
+    wire [6:0]  issL_pdst = rs_pdst[issL_idx];
     wire        issL_has  = rs_has_pdst[issL_idx];
     wire [31:0] issL_op1  = rs_s1_rdy[issL_idx] ? rs_s1_val[issL_idx] :
                             (cdb1_byp_valid && cdb1_byp_has && (cdb1_byp_pdst == rs_s1_tag[issL_idx]))
@@ -811,7 +827,7 @@ module student_top (
     wire        div_busy, div_done;
     wire [31:0] div_result;
     reg  [4:0]  div_tag;
-    reg  [5:0]  div_pdst;
+    reg  [6:0]  div_pdst;
     reg         div_has;
     reg         div_squash;
     reg         div_spec_r;
@@ -890,7 +906,7 @@ module student_top (
     wire head_store_rdy = rob_nonempty && rob_done[rh] && rob_is_store[rh] &&
                           mob_nonempty && mob_is_store[mh] &&
                           (mob_tag[mh] == rh) && mob_addr_rdy[mh];
-    wire next_store_rdy = (rob_cnt >= 6'd2) && rob_done[rh1] && rob_is_store[rh1] &&
+    wire next_store_rdy = (rob_cnt >= 2) && rob_done[rh1] && rob_is_store[rh1] &&
                           (mh1 != mob_tail) && mob_is_store[mh1] &&
                           (mob_tag[mh1] == rh1) && mob_addr_rdy[mh1];
     wire st_go  = st_ph2v && !sb_full && !dc_fill_clash && !dc_fillwrite;
@@ -968,9 +984,9 @@ module student_top (
 
     // ==================== 提交（每拍至多 2 条非 store；store 走 st 流水） ====================
     wire cmt0_valid = rob_nonempty && rob_done[rh] && !rob_is_store[rh];
-    wire cmt1_valid = (rob_cnt >= 6'd2) && rob_done[rh1] && !rob_is_store[rh1];
+    wire cmt1_valid = (rob_cnt >= 2) && rob_done[rh1] && !rob_is_store[rh1];
     assign commit0 = cmt0_valid;
-    assign commit1 = cmt0_valid && cmt1_valid;
+    assign commit1 = ISSUE2 && cmt0_valid && cmt1_valid;
     wire [1:0] head_adv = commit1 ? 2'd2 :
                           (commit0 || st_commit_done) ? 2'd1 : 2'd0;
 
@@ -1137,7 +1153,7 @@ module student_top (
     integer ai;
     always @(posedge clock) begin
         if (reset) begin
-            for (ai = 0; ai < 32; ai = ai + 1) RAT[ai] <= ai[5:0];
+            for (ai = 0; ai < 32; ai = ai + 1) RAT[ai] <= ai[6:0];
             snap_head <= 4'd0;
             snap_tail <= 4'd0;
         end else if (flush) begin
@@ -1170,19 +1186,19 @@ module student_top (
     integer fi2;
     always @(posedge clock) begin
         if (reset) begin
-            fl_head <= 7'd0;
-            fl_tail <= 7'd32;
-            for (fi2 = 0; fi2 < 32; fi2 = fi2 + 1) fl[fi2] <= 6'd32 + fi2[5:0];
+            fl_head <= 8'd0;
+            fl_tail <= PRF_SIZE - 32;
+            for (fi2 = 0; fi2 < PRF_SIZE - 32; fi2 = fi2 + 1) fl[fi2] = 7'd32 + fi2[6:0];
         end else begin
             if (commit0 && rob_has_pdst[rh]) begin
-                fl[fl_tail[5:0]] <= rob_pold[rh];
+                fl[fl_tail[6:0]] <= rob_pold[rh];
                 fl_tail <= fl_tail + 7'd1 + {6'b0, (commit1 && rob_has_pdst[rh1])};
             end else if (commit1 && rob_has_pdst[rh1]) begin
-                fl[fl_tail[5:0]] <= rob_pold[rh1];
+                fl[fl_tail[6:0]] <= rob_pold[rh1];
                 fl_tail <= fl_tail + 7'd1;
             end
             if (commit1 && rob_has_pdst[rh] && rob_has_pdst[rh1])
-                fl[fl_tail[5:0] + 6'd1] <= rob_pold[rh1];
+                fl[fl_tail[6:0] + 7'd1] <= rob_pold[rh1];
             if (flush) fl_head <= rob_fl_head[flush_idx[4:0]];
             else fl_head <= fl_head + {5'b0, (dsp0_en && d0_has_pdst)} +
                                       {5'b0, (dsp1_en && d1_has_pdst)};
@@ -1192,7 +1208,7 @@ module student_top (
     // ---- PRF ----
     always @(posedge clock) begin
         if (reset) begin
-            prf_ready <= {64{1'b1}};
+            prf_ready <= {128{1'b1}};
         end else begin
             if (cdbA_valid && cdbA_has) begin
                 prf[cdbA_pdst] <= cdbA_val;
@@ -1341,7 +1357,7 @@ module student_top (
     end
 
     // ==================== icache / dcache / storebuf / AXI ====================
-    icache u_icache (
+    icache #(.LINES(ICACHE_LINES), .WAYS(ICACHE_WAYS)) u_icache (
         .clk(clock), .reset(reset),
         .pc_f(read_addr), .pc_id(pend_v ? pend_pc : read_addr),
         .front_stall(icache_hold),
@@ -1352,7 +1368,7 @@ module student_top (
         .rdata(rdata), .rvalid(rvalid), .last_r(ic_last_r)
     );
 
-    dcache u_dcache (
+    dcache #(.LINES(DCACHE_LINES), .WAYS(DCACHE_WAYS)) u_dcache (
         .clk(clock), .reset(reset),
         .ex_addr(dc_ex_addr), .mem_addr(mem_addr_r), .hold(mem_hold),
         .store_wr(dc_store_wr),
@@ -1367,7 +1383,7 @@ module student_top (
         .rdata(rdata), .rvalid(rvalid), .last_r(dc_last_r)
     );
 
-    storebuf u_storebuf (
+    storebuf #(.DEPTH(STORE_BUF_DEPTH)) u_storebuf (
         .clk(clock), .reset(reset),
         .push(sb_push), .push_addr({st_addr[31:2], 2'b00}),
         .push_data(st_w32), .push_strb(st_strb),
