@@ -341,9 +341,14 @@ module student_top (
                          (fat2_type == BT_RET && ras_cnt_eff != 4'd0));
     wire [31:0] f2_fat_target = (fat2_type == BT_RET) ? ras_top : fat2_target;
 
-    // 队列空位（本拍弹出后）
+    // 队列空位（本拍弹出 + 本拍到货后）
     wire [1:0] pop_n;                 // 本拍弹出条数（0/1/2），后文定义
-    wire [2:0] q_space = Q_DEPTH - (q_cnt - {1'b0, pop_n});
+    // 数据到达（上一拍请求 hit）时入队
+    wire        arrive    = pend_v && ic_hit;
+    wire        arrive2   = arrive && pend_m2 && ic_hit2;
+    wire [1:0]  arr_n     = arrive ? (arrive2 ? 2'd2 : 2'd1) : 2'd0;
+    wire [3:0]  q_used    = {1'b0, q_cnt} - {2'b0, pop_n} + {2'b0, arr_n};
+    wire [2:0]  q_space   = (q_used >= Q_DEPTH) ? 3'd0 : (Q_DEPTH - q_used);
     wire       f2_line_ok = (pc_f[3:2] != 2'b11);
     wire [1:0] fw_avail = f2_line_ok ? 2'd2 : 2'd1;
 
@@ -351,23 +356,19 @@ module student_top (
                         f1_fat_taken ? 2'd1 :
                         (q_space == 3'd1) ? 2'd1 :
                         (ISSUE2 ? fw_avail : 2'd1);
-    wire can_issue_read = !pend_v && (push_m != 2'd0) && !ic_miss && !ic_busy;
+    // 每拍都可以发新请求；上一拍请求的结果本拍到货
+    wire can_issue_read = (push_m != 2'd0) && !ic_miss && !ic_busy;
 
     wire [31:0] pc_f_next = f1_fat_taken ? f1_fat_target :
                             (push_m == 2'd2 && f2_fat_taken) ? f2_fat_target :
                             pc_f + {28'b0, push_m, 2'b0};
 
-    // 读地址与对齐保持
-    wire [31:0] read_addr = pend_v ? pend_pc : pc_f;
     wire        icache_hold = front_stall;
-
-    // 数据到达（pend 有效且 hit）时入队
-    wire        arrive    = pend_v && ic_hit;
-    wire        arrive2   = arrive && pend_m2 && ic_hit2;
-    wire [36:0] f1_prd = pc_f[2] ? bank1_rdata : bank0_rdata;
-    wire [36:0] f2_prd = pc_f[2] ? bank0_rdata : bank1_rdata;
-    wire        f1_pv  = pc_f[2] ? pv1 : pv0;
-    wire        f2_pv  = pc_f[2] ? pv0 : pv1;
+    // BHT 读数据属于上一拍发出的请求（pend_pc）
+    wire [36:0] f1_prd = pend_pc[2] ? bank1_rdata : bank0_rdata;
+    wire [36:0] f2_prd = pend_pc[2] ? bank0_rdata : bank1_rdata;
+    wire        f1_pv  = pend_pc[2] ? pv1 : pv0;
+    wire        f2_pv  = pend_pc[2] ? pv0 : pv1;
 
     // ==================== 后端结构 ====================
     reg [6:0]  RAT  [0:31];
@@ -520,7 +521,8 @@ module student_top (
                                  q_iftg[0];
     wire q0_control = d0_jal || d0_jalr || d0_branch;
     wire p0_mismatch = d0_jal ? (!q_ift[0] || q_iftg[0] != q_pc[0] + d0_imm)
-                              : (q_ift[0] != p0_pred_taken);
+                              : ((q_ift[0] != p0_pred_taken) ||
+                                 (p0_pred_taken && (q_iftg[0] != p0_pred_target)));
     // 控制指令：若 IF 未预测对（taken），在 pop 点重定向（仅在实际弹出时生效）
     wire redir0_pre = (q_cnt > 3'd0) && q0_control && p0_mismatch && !flush;
     wire [31:0] redir0_target = p0_pred_taken ? p0_pred_target : (q_pc[0] + 32'd4);
@@ -545,7 +547,8 @@ module student_top (
                                  q_iftg[1];
     wire q1_control = d1_jal || d1_jalr || d1_branch;
     wire p1_mismatch = d1_jal ? (!q_ift[1] || q_iftg[1] != q_pc[1] + d1_imm)
-                              : (q_ift[1] != p1_pred_taken);
+                              : ((q_ift[1] != p1_pred_taken) ||
+                                 (p1_pred_taken && (q_iftg[1] != p1_pred_target)));
     wire redir1_pre = (q_cnt > 3'd1) && q1_control && p1_mismatch && !flush;
     wire [31:0] redir1_target = p1_pred_taken ? p1_pred_target : (q_pc[1] + 32'd4);
     wire redir1;
@@ -1283,10 +1286,9 @@ module student_top (
     end
 
     // ==================== 前端：pc_f / pend / 队列 ====================
-    // pop 点遇到预测 taken 的控制指令：后续顺序流作废，视同重定向
-    wire pop_taken_redir = (dsp0_en && !dsp1_en && q0_control && eff0_taken) ||
-                           (dsp1_en && q1_control && eff1_taken);
-    wire q_clear = flush || pop_redirect || pop_taken_redir;
+    // 只有真正的预测不一致（pop_redirect）或 flush 才清空队列。
+    // 正确预测的 taken 分支不再无条件清队列，避免取消已在飞的目标取指。
+    wire q_clear = flush || pop_redirect;
 
     integer qi;
     always @(posedge clock) begin
@@ -1298,10 +1300,6 @@ module student_top (
             // ---- pc_f ----
             if (flush)                 pc_f <= flush_target;
             else if (pop_redirect)     pc_f <= pop_red_target;
-            else if (q0_control && eff0_taken && dsp0_en && !dsp1_en)
-                                       pc_f <= eff0_target;
-            else if (dsp1_en && q1_control && eff1_taken)
-                                       pc_f <= eff1_target;
             else if (can_issue_read)   pc_f <= pc_f_next;
 
             // ---- pend ----
@@ -1361,7 +1359,7 @@ module student_top (
     // ==================== icache / dcache / storebuf / AXI ====================
     icache #(.LINES(ICACHE_LINES), .WAYS(ICACHE_WAYS)) u_icache (
         .clk(clock), .reset(reset),
-        .pc_f(read_addr), .pc_id(pend_v ? pend_pc : read_addr),
+        .pc_f(pc_f), .pc_id(pend_v ? pend_pc : pc_f),
         .front_stall(icache_hold),
         .instr(ic_instr), .instr2(ic_instr2), .hit(ic_hit), .hit2(ic_hit2),
         .miss(ic_miss), .busy(ic_busy),

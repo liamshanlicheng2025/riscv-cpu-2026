@@ -1,0 +1,18 @@
+=== perf_median ===
+PROF cyc=13456 retire=6961 flush=1246 front=516 icmiss=212 icbusy=508 icrmiss=8 qempty=8203 disp_none=749 dual_disp=2763 blk_rs=565 blk_rob=0 blk_mob=0 blk_snap=581 blk_fl=0 iss0=4491 iss1=610 issL=1996 dual_iss=610 idle0=3522 idle1=4615 ld_ready=4382 ld_wait_mob=141 ld_wait_port=2245 ldm=3105 dcmiss=3105 dcrmiss=101 dcbusy=3953 sbfull=0 memhold=3105 divbusy=0 store_ret=403 branch_res=2314 cmt1=1836 req=7153 req1=1501 req2=5652 arr=5209 arr2=3897 pop_taken=334 pop_taken_match=0 pop_redir=1254 qclear=2805 rs_occ=26403 rob_occ=58118 q_occ=10141
+CPU2026 cycles=13469
+=== perf_multiply ===
+PROF cyc=37498 retire=21722 flush=683 front=518 icmiss=234 icbusy=510 icrmiss=8 qempty=22042 disp_none=745 dual_disp=7156 blk_rs=536 blk_rob=27 blk_mob=0 blk_snap=8 blk_fl=0 iss0=14591 iss1=6847 issL=407 dual_iss=6847 idle0=1534 idle1=1656 ld_ready=1593 ld_wait_mob=0 ld_wait_port=1186 ldm=1503 dcmiss=1503 dcrmiss=35 dcbusy=2039 sbfull=0 memhold=1503 divbusy=0 store_ret=108 branch_res=6931 cmt1=7010 req=21752 req1=6744 req2=15008 arr=14671 arr2=8045 pop_taken=6470 pop_taken_match=1 pop_redir=438 qclear=7252 rs_occ=35966 rob_occ=76192 q_occ=25020
+CPU2026 cycles=37511
+=== perf_qsort ===
+PROF cyc=229761 retire=139900 flush=14677 front=700 icmiss=444 icbusy=686 icrmiss=14 qempty=130462 disp_none=7699 dual_disp=55292 blk_rs=1125 blk_rob=1387 blk_mob=0 blk_snap=4 blk_fl=0 iss0=99819 iss1=12485 issL=31079 dual_iss=12485 idle0=31403 idle1=58218 ld_ready=49790 ld_wait_mob=5866 ld_wait_port=12637 ldm=18600 dcmiss=18599 dcrmiss=730 dcbusy=21225 sbfull=0 memhold=19204 divbusy=0 store_ret=13751 branch_res=38084 cmt1=28638 req=130840 req1=32171 req2=98669 arr=96378 arr2=74029 pop_taken=16382 pop_taken_match=37 pop_redir=12001 qclear=41284 rs_occ=319976 rob_occ=722507 q_occ=173804
+CPU2026 cycles=229774
+=== perf_rsort ===
+PROF cyc=227314 retire=195719 flush=38 front=916 icmiss=660 icbusy=896 icrmiss=20 qempty=102367 disp_none=16824 dual_disp=87600 blk_rs=16797 blk_rob=160 blk_mob=0 blk_snap=0 blk_fl=0 iss0=130776 iss1=27044 issL=37902 dual_iss=27044 idle0=74470 idle1=138465 ld_ready=141415 ld_wait_mob=86826 ld_wait_port=16687 ldm=22032 dcmiss=22032 dcrmiss=917 dcbusy=27321 sbfull=6 memhold=23796 divbusy=0 store_ret=28683 branch_res=11798 cmt1=56350 req=111959 req1=8555 req2=103404 arr=102225 arr2=93702 pop_taken=9723 pop_taken_match=49 pop_redir=26 qclear=9770 rs_occ=1191778 rob_occ=2277004 q_occ=271194
+CPU2026 cycles=227327
+=== perf_towers ===
+PROF cyc=7895 retire=5278 flush=90 front=1069 icmiss=660 icbusy=1044 icrmiss=25 qempty=3953 disp_none=771 dual_disp=2120 blk_rs=522 blk_rob=1 blk_mob=247 blk_snap=0 blk_fl=0 iss0=3181 iss1=555 issL=1547 dual_iss=555 idle0=3017 idle1=4892 ld_ready=4458 ld_wait_mob=2678 ld_wait_port=234 ldm=651 dcmiss=651 dcrmiss=23 dcbusy=1342 sbfull=389 memhold=662 divbusy=0 store_ret=1621 branch_res=332 cmt1=1107 req=3358 req1=810 req2=2548 arr=3022 arr2=2430 pop_taken=207 pop_taken_match=3 pop_redir=80 qclear=364 rs_occ=46585 rob_occ=93132 q_occ=8777
+CPU2026 cycles=7908
+=== perf_vvadd ===
+PROF cyc=7563 retire=4524 flush=8 front=406 icmiss=150 icbusy=401 icrmiss=5 qempty=3085 disp_none=1713 dual_disp=1761 blk_rs=0 blk_rob=1709 blk_mob=0 blk_snap=0 blk_fl=0 iss0=2741 iss1=584 issL=1200 dual_iss=584 idle0=4004 idle1=5445 ld_ready=6126 ld_wait_mob=2422 ld_wait_port=2504 ldm=3429 dcmiss=3429 dcrmiss=100 dcbusy=3946 sbfull=0 memhold=3429 divbusy=0 store_ret=301 branch_res=903 cmt1=1683 req=3176 req1=503 req2=2673 arr=2571 arr2=2168 pop_taken=599 pop_taken_match=99 pop_redir=4 qclear=609 rs_occ=58889 rob_occ=135116 q_occ=11670
+CPU2026 cycles=7576
