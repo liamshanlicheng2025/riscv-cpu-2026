@@ -1,0 +1,294 @@
+{
+  "mode": "opt",
+  "logic_area_um2": 15794.630640007968,
+  "sequential_area_um2": 5495.202,
+  "combinational_area_um2": 10299.428640007969,
+  "sram_area_um2": 8320.145816000002,
+  "area_um2": 24114.77645600797,
+  "module_tree": {
+    "instance": "student_top",
+    "module": "student_top",
+    "source_module": "student_top",
+    "direct_area_um2": 24114.77645600797,
+    "direct": {
+      "logic_area_um2": 15794.630640007968,
+      "sequential_area_um2": 5495.202,
+      "combinational_area_um2": 10299.428640007969,
+      "sram_area_um2": 8320.145816000002,
+      "area_um2": 24114.77645600797
+    },
+    "logic_area_um2": 15794.630640007968,
+    "sequential_area_um2": 5495.202,
+    "combinational_area_um2": 10299.428640007969,
+    "sram_area_um2": 8320.145816000002,
+    "area_um2": 24114.77645600797,
+    "children": [],
+    "percent_of_total": 100.0
+  },
+  "sram_instances": [
+    {
+      "instance": "student_top/bht0.lane_0",
+      "module": "fakeram_asap7_128x37",
+      "depth": 128,
+      "width": 37,
+      "area_um2": 198.866534
+    },
+    {
+      "instance": "student_top/bht1.lane_0",
+      "module": "fakeram_asap7_128x37",
+      "depth": 128,
+      "width": 37,
+      "area_um2": 198.866534
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_0",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_1",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_10",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_11",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_12",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_13",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_14",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_15",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_2",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_3",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_4",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_5",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_6",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_7",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_8",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].data_ram.lane_9",
+      "module": "fakeram_asap7_1024x8",
+      "depth": 1024,
+      "width": 8,
+      "area_um2": 343.985357
+    },
+    {
+      "instance": "student_top/u_dcache.g_way[0].tag_ram.lane_0",
+      "module": "fakeram_asap7_1024x19",
+      "depth": 1024,
+      "width": 19,
+      "area_um2": 816.965222
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_0",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_1",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_10",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_11",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_12",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_13",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_14",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_15",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_2",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_3",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_4",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_5",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_6",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_7",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_8",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].data_ram.lane_9",
+      "module": "fakeram_asap7_256x8",
+      "depth": 256,
+      "width": 8,
+      "area_um2": 85.996339
+    },
+    {
+      "instance": "student_top/u_icache.g_way[0].tag_ram.lane_0",
+      "module": "fakeram_asap7_256x21",
+      "depth": 256,
+      "width": 21,
+      "area_um2": 225.74039
+    }
+  ],
+  "sram_model": {
+    "name": "fakeram-asap7-v1",
+    "upstream": "ABKGroup/FakeRAM2.0",
+    "commit": "49dad15badc28a55363813e105c830c7776fc588",
+    "estimated": true,
+    "area_per_bit_um2": 0.0419904,
+    "clock_to_q_formula_ns": "0.071262 + 0.0000167155 * depth + 0.001243254 * width",
+    "setup_ns": 0.05,
+    "hold_ns": 0.05,
+    "min_period_ns": 0.157
+  },
+  "timing_analyzed": true
+}
