@@ -1,0 +1,7 @@
+=== original main (unfixed) synthesis failure ===
+Warning: found logic loop in module student_top:
+    cell $ternary$/tmp/opencode/cpu-synth/verilog/student_top.v:810$1511 ($mux) source: /tmp/opencode/cpu-synth/verilog/student_top.v:810.33-811.68
+      S[0] --> Y[0]
+    wire \resolve_target [0] source: /tmp/opencode/cpu-synth/verilog/student_top.v:247.17-247.31
+... (234 identical logic-loop warnings omitted) ...
+ERROR: Found 234 problems in 'check -assert'.

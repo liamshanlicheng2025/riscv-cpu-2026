@@ -1,0 +1,18 @@
+diff --git a/verilog/student_top.v b/verilog/student_top.v
+index fb54f62..fd8615f 100644
+--- a/verilog/student_top.v
++++ b/verilog/student_top.v
+@@ -658,9 +658,11 @@ module student_top (
+             wire rdy = rs_valid[gv] && s1_ok && s2_ok;
+             assign candL[gv] = rdy && rs_is_load[gv] && mob_head_is_me && ld_port_free &&
+                                !(flush && is_young(rs_tag[gv], flush_idx, rob_tail[4:0]));
++            // port0 不参与 flush 过滤：选中的指令本身就是误预测分支，且按 RS 索引
++            // 优先选择时过滤不会改变选中项；若在此处引用 flush 会形成
++            // cand0 -> iss0_idx -> iss0_tag -> flush -> cand0 的组合环（Yosys 无法综合）。
+             assign cand0[gv] = rdy && !rs_is_load[gv] &&
+-                               (rs_is_div[gv] ? (!div_busy && !div_done_bcast) : !div_done_bcast) &&
+-                               !(flush && is_young(rs_tag[gv], flush_idx, rob_tail[4:0]));
++                               (rs_is_div[gv] ? (!div_busy && !div_done_bcast) : !div_done_bcast);
+             assign cand1[gv] = rdy && !rs_is_load[gv] && !rs_is_store[gv] &&
+                                !rs_is_branch[gv] && !rs_is_jalr[gv] &&
+                                !rs_is_mul[gv] && !rs_is_div[gv] &&
