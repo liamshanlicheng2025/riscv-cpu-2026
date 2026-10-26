@@ -1,0 +1,62 @@
+"python3" "/mnt/d/cpu/RISC-V-CPU-2026/scripts/testcase.py" --kind correctness --build "build" \
+	--testcases "/mnt/d/cpu/RISC-V-CPU-2026/testcases" --max-cycles 100000000 --latency 20 \
+	--sim "build/cache2k/sim"
+
+[correctness_add_to_100]
+PASS cycles=369
+
+[correctness_array_test1]
+PASS cycles=453
+
+[correctness_array_test2]
+PASS cycles=477
+
+[correctness_basicopt1]
+PASS cycles=126030
+
+[correctness_bulgarian]
+PASS cycles=188343
+
+[correctness_expr]
+PASS cycles=571
+
+[correctness_gcd]
+PASS cycles=387
+
+[correctness_hanoi]
+PASS cycles=4088
+
+[correctness_lvalue2]
+PASS cycles=325
+
+[correctness_magic]
+PASS cycles=386010
+
+[correctness_manyarguments]
+PASS cycles=294
+
+[correctness_multiarray]
+PASS cycles=1729
+
+[correctness_naive]
+PASS cycles=313
+
+[correctness_pi]
+PASS cycles=6874470
+
+[correctness_qsort]
+PASS cycles=813125
+
+[correctness_queens]
+PASS cycles=243126
+
+[correctness_statement_test]
+PASS cycles=935
+
+[correctness_superloop]
+PASS cycles=399325
+
+[correctness_tak]
+PASS cycles=1065279
+
+Results: 19 passed, 0 failed

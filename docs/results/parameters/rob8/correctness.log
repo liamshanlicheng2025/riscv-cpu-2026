@@ -1,0 +1,59 @@
+
+[correctness_add_to_100]
+PASS cycles=319
+
+[correctness_array_test1]
+PASS cycles=338
+
+[correctness_array_test2]
+PASS cycles=371
+
+[correctness_basicopt1]
+PASS cycles=135149
+
+[correctness_bulgarian]
+PASS cycles=194244
+
+[correctness_expr]
+PASS cycles=475
+
+[correctness_gcd]
+PASS cycles=303
+
+[correctness_hanoi]
+PASS cycles=3759
+
+[correctness_lvalue2]
+PASS cycles=241
+
+[correctness_magic]
+PASS cycles=386514
+
+[correctness_manyarguments]
+PASS cycles=210
+
+[correctness_multiarray]
+PASS cycles=1579
+
+[correctness_naive]
+PASS cycles=229
+
+[correctness_pi]
+PASS cycles=6744883
+
+[correctness_qsort]
+PASS cycles=800960
+
+[correctness_queens]
+PASS cycles=245614
+
+[correctness_statement_test]
+PASS cycles=775
+
+[correctness_superloop]
+PASS cycles=399186
+
+[correctness_tak]
+PASS cycles=1064919
+
+Results: 19 passed, 0 failed

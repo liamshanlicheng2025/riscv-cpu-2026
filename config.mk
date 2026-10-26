@@ -7,6 +7,9 @@ CXX ?= g++
 AR ?= ar
 BUILD_MAKE ?= make
 
+# Full pi/tak programs exceed one million cycles even on the optimized core.
+MAX_CYCLES ?= 100000000
+
 # Course hardware tools (Linux x86-64 / x86-64 WSL2).
 # Set APPIMAGE= to use only native tools.
 APPIMAGE ?= $(FRAMEWORK_DIR)/cpu2026-tools-x86_64.AppImage

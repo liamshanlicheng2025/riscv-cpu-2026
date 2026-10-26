@@ -1,0 +1,34 @@
+{
+  "upstream": "https://github.com/Galuisss/ACM-CPU",
+  "upstream_commit": "b76000b65bfa7ef9aca57ef27478ce33fa488791",
+  "sources_sha256": {
+    "rtl/ooo/cpu_pkg.sv": "091cff8f3e304844564d9524e9702f2228119a792cb7e235a61887c973c21aac",
+    "rtl/ooo/decoder.sv": "ded522812f105f78d7e4c38a7f38d1484f54149547dc1e853bba92ca51ea5158",
+    "rtl/ooo/alu.sv": "7f65cbac4545a79461a116ff09d75ebc86e3c858e0ca7e0265fc8d1c8def9b1a",
+    "rtl/ooo/branch_unit.sv": "24f48d8a96a17af442d46e5977ece5be4664bdf42a5527de5dc4021a3acc8bd5",
+    "rtl/ooo/muldiv.sv": "1ba7fe604b95db1252f2feadf7c8ef794c61edc7116653f5eebe2cd0c8852499",
+    "rtl/ooo/memory_controller.sv": "6a0d9910fd488bc67cde46886d7fca8f918dafa3e935f20db4409de309592163",
+    "rtl/ooo/cpu_top.sv": "72ea2e279a96659cf773056ca84c12c70e130f44f7015a27e60c307a412bf6c3",
+    "rtl/ooo/v2_frontend.sv": "47da375d14dea2a243b29d6adce88782d7e2d03e761386bec9177c3ba65f9bb9",
+    "rtl/ooo/v2_dcache.sv": "3c0f3ca856e1fddc30def798498e796cfc0f4a0ea7cc3827b8a03959306ea708",
+    "rtl/ooo/v2_rename.sv": "5bc304395ce6c24581c4257d2a4c852af30c503e36bbf99237f7931bb73ac3f8",
+    "rtl/ooo/v2_select.sv": "dc15dceb86137c05f429c9a6098f88febe9f60abfcbdc630e7de2382a740eb1a",
+    "rtl/ooo/v2_read.sv": "e9794d3d9e1002659e163cfb4686d18c494074a1f93cb27981997be3540a45c7",
+    "rtl/ooo/v2_ring_youngest.sv": "76901f687554ffa6b3f0d3377f7225959469d3e9fbbf3db787e8895f849990d6",
+    "rtl/ooo/v2_age_matrix.sv": "d8f63ff56fbf56eb5961c8f9f3c774d1b40eb552c7215de13f73ac5492c65b1d",
+    "rtl/ooo/v2_alu.sv": "5f2da4855af1484739b87b879d024e9da2641d762fb8ceb3f82dc0912a173db4",
+    "rtl/ooo/v2_add32.sv": "251a59881dfcdb01b80356b0fa3e375da260e090b8bf9e48b13bbba2792e3187",
+    "rtl/ooo/v2_prepare_address.sv": "24198e8f75e7ffda299733532d040b8f0c89e88b965f6d404599234f30cea3fc",
+    "rtl/ooo/ooo_recovery_flag.sv": "7dd623d2aa98b2cd9edc9d530e5a08a19015d90d68abf9982474e3aa5171e012",
+    "rtl/ooo/ooo_head_select.sv": "440279fc9fef467c6473c544d7531631ece6b2fb53acf1a5a65ced5cfc23795f",
+    "rtl/ooo/student_top.sv": "3d6a779dc4e6438346a6a5a65402a6805e789f1498feaa057ae74c24f22c7d8a"
+  },
+  "exporter_sha256": {
+    "rtl/export_ooo.py": "a02f2a771946dfd76e20ce777fa7640d9337b3c42f879236b055f10d6bfe64ff",
+    "rtl/ooo/upstream_export.py": "356076216dd37b81dae4066e89ca620bba7ff729baff0262863ec4d2827cc7c7"
+  },
+  "parameters": {
+    "ROB_DEPTH": 8
+  },
+  "output_sha256": "a9321b9bb9447c043d2d5405d0f0cb337b0b9aaf8336e1a4c1900a121f1c0f29"
+}
