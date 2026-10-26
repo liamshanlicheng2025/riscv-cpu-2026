@@ -1099,56 +1099,57 @@ module student_top (
     end
 
     // ---- ROB ----
+    // head/tail 与数据阵列分开，避免 flush 进入 ROB 数据 mux
     always @(posedge clock) begin
-        if (reset) begin
-            rob_head <= 6'd0;
-            rob_tail <= 6'd0;
-        end else begin
-            if (cdbA_valid) rob_done[cdbA_tag] <= 1'b1;
-            if (cdbB_valid) rob_done[cdbB_tag] <= 1'b1;
-            if (cdb1_valid) rob_done[cdb1_tag] <= 1'b1;
-            if (iss0_fire && iss0_is_cbranch) rob_done[iss0_tag] <= 1'b1;
-            if (iss0_fire && iss0_is_store)   rob_done[iss0_tag] <= 1'b1;
-            if (flush) begin
-                rob_tail <= rob_next_tail[flush_idx[4:0]];
-            end else begin
-                if (dsp0_en) begin
-                    rob_done[rob_tail[4:0]]       <= 1'b0;
-                    rob_pc[rob_tail[4:0]]         <= q_pc[0];
-                    rob_is_store[rob_tail[4:0]]   <= d0_store;
-                    rob_is_call[rob_tail[4:0]]    <= d0_call;
-                    rob_is_ret[rob_tail[4:0]]     <= d0_ret;
-                    rob_pred_taken[rob_tail[4:0]] <= eff0_taken;
-                    rob_rd[rob_tail[4:0]]         <= d0_rd;
-                    rob_has_pdst[rob_tail[4:0]]   <= d0_has_pdst;
-                    rob_pdst[rob_tail[4:0]]       <= alloc0;
-                    rob_pold[rob_tail[4:0]]       <= pold0;
-                    rob_fl_head[rob_tail[4:0]]    <= fl_head + {6'b0, d0_has_pdst};
-                    rob_mob_tail[rob_tail[4:0]]   <= mob_tail + {4'b0, d0_mem};
-                    rob_next_tail[rob_tail[4:0]]  <= rob_tail + 6'd1;
-                    rob_snap_idx[rob_tail[4:0]]   <= snap_tail;
-                    rob_snap_val[rob_tail[4:0]]   <= dsp0_need_snap;
-                end
-                if (dsp1_en) begin
-                    rob_done[rob_tail[4:0]+5'd1]       <= 1'b0;
-                    rob_pc[rob_tail[4:0]+5'd1]         <= q_pc[1];
-                    rob_is_store[rob_tail[4:0]+5'd1]   <= d1_store;
-                    rob_is_call[rob_tail[4:0]+5'd1]    <= d1_call;
-                    rob_is_ret[rob_tail[4:0]+5'd1]     <= d1_ret;
-                    rob_pred_taken[rob_tail[4:0]+5'd1] <= eff1_taken;
-                    rob_rd[rob_tail[4:0]+5'd1]         <= d1_rd;
-                    rob_has_pdst[rob_tail[4:0]+5'd1]   <= d1_has_pdst;
-                    rob_pdst[rob_tail[4:0]+5'd1]       <= alloc1;
-                    rob_pold[rob_tail[4:0]+5'd1]       <= pold1;
-                    rob_fl_head[rob_tail[4:0]+5'd1]    <= fl_head + {6'b0, d0_has_pdst} + {6'b0, d1_has_pdst};
-                    rob_mob_tail[rob_tail[4:0]+5'd1]   <= mob_tail + {4'b0, d0_mem} + {4'b0, d1_mem};
-                    rob_next_tail[rob_tail[4:0]+5'd1]  <= rob_tail + 6'd2;
-                    rob_snap_idx[rob_tail[4:0]+5'd1]   <= snap_tail;
-                    rob_snap_val[rob_tail[4:0]+5'd1]   <= dsp1_need_snap;
-                end
-                rob_tail <= rob_tail + {4'b0, pop_n};
-            end
-            rob_head <= rob_head + {4'b0, head_adv};
+        if (reset)      rob_head <= 6'd0;
+        else            rob_head <= rob_head + {4'b0, head_adv};
+    end
+
+    always @(posedge clock) begin
+        if (reset)      rob_tail <= 6'd0;
+        else if (flush) rob_tail <= rob_next_tail[flush_idx[4:0]];
+        else            rob_tail <= rob_tail + {4'b0, pop_n};
+    end
+
+    always @(posedge clock) begin
+        if (cdbA_valid) rob_done[cdbA_tag] <= 1'b1;
+        if (cdbB_valid) rob_done[cdbB_tag] <= 1'b1;
+        if (cdb1_valid) rob_done[cdb1_tag] <= 1'b1;
+        if (iss0_fire && iss0_is_cbranch) rob_done[iss0_tag] <= 1'b1;
+        if (iss0_fire && iss0_is_store)   rob_done[iss0_tag] <= 1'b1;
+        if (dsp0_en) begin
+            rob_done[rob_tail[4:0]]       <= 1'b0;
+            rob_pc[rob_tail[4:0]]         <= q_pc[0];
+            rob_is_store[rob_tail[4:0]]   <= d0_store;
+            rob_is_call[rob_tail[4:0]]    <= d0_call;
+            rob_is_ret[rob_tail[4:0]]     <= d0_ret;
+            rob_pred_taken[rob_tail[4:0]] <= eff0_taken;
+            rob_rd[rob_tail[4:0]]         <= d0_rd;
+            rob_has_pdst[rob_tail[4:0]]   <= d0_has_pdst;
+            rob_pdst[rob_tail[4:0]]       <= alloc0;
+            rob_pold[rob_tail[4:0]]       <= pold0;
+            rob_fl_head[rob_tail[4:0]]    <= fl_head + {6'b0, d0_has_pdst};
+            rob_mob_tail[rob_tail[4:0]]   <= mob_tail + {4'b0, d0_mem};
+            rob_next_tail[rob_tail[4:0]]  <= rob_tail + 6'd1;
+            rob_snap_idx[rob_tail[4:0]]   <= snap_tail;
+            rob_snap_val[rob_tail[4:0]]   <= dsp0_need_snap;
+        end
+        if (dsp1_en) begin
+            rob_done[rob_tail[4:0]+5'd1]       <= 1'b0;
+            rob_pc[rob_tail[4:0]+5'd1]         <= q_pc[1];
+            rob_is_store[rob_tail[4:0]+5'd1]   <= d1_store;
+            rob_is_call[rob_tail[4:0]+5'd1]    <= d1_call;
+            rob_is_ret[rob_tail[4:0]+5'd1]     <= d1_ret;
+            rob_pred_taken[rob_tail[4:0]+5'd1] <= eff1_taken;
+            rob_rd[rob_tail[4:0]+5'd1]         <= d1_rd;
+            rob_has_pdst[rob_tail[4:0]+5'd1]   <= d1_has_pdst;
+            rob_pdst[rob_tail[4:0]+5'd1]       <= alloc1;
+            rob_pold[rob_tail[4:0]+5'd1]       <= pold1;
+            rob_fl_head[rob_tail[4:0]+5'd1]    <= fl_head + {6'b0, d0_has_pdst} + {6'b0, d1_has_pdst};
+            rob_mob_tail[rob_tail[4:0]+5'd1]   <= mob_tail + {4'b0, d0_mem} + {4'b0, d1_mem};
+            rob_next_tail[rob_tail[4:0]+5'd1]  <= rob_tail + 6'd2;
+            rob_snap_idx[rob_tail[4:0]+5'd1]   <= snap_tail;
+            rob_snap_val[rob_tail[4:0]+5'd1]   <= dsp1_need_snap;
         end
     end
 
@@ -1156,6 +1157,7 @@ module student_top (
     wire [31:0] pc_id_print = dsp1_en ? q_pc[1] : q_pc[0];
     // ---- RAT / 快照 ----
     integer ai;
+    // RAT 恢复与 snap_rat 写入分开：flush 只进入 RAT 的 32x7 恢复 mux
     always @(posedge clock) begin
         if (reset) begin
             for (ai = 0; ai < 32; ai = ai + 1) RAT[ai] <= ai[6:0];
@@ -1171,19 +1173,25 @@ module student_top (
             snap_head <= snap_head + {3'b0, (commit0 && rob_snap_val[rh])} +
                                      {3'b0, (commit1 && rob_snap_val[rh1])};
             if (dsp0_en && dsp0_need_snap) begin
-                for (ai = 0; ai < 32; ai = ai + 1)
-                    snap_rat[snap_tail[2:0]][ai] <=
-                        (d0_has_pdst && (d0_rd == ai[4:0])) ? alloc0 : RAT[ai];
                 snap_tail <= snap_tail + 4'd1;
             end else if (dsp1_en && dsp1_need_snap) begin
-                for (ai = 0; ai < 32; ai = ai + 1)
-                    snap_rat[snap_tail[2:0]][ai] <=
-                        (d1_has_pdst && (d1_rd == ai[4:0])) ? alloc1 :
-                        (d0_has_pdst && (d0_rd == ai[4:0])) ? alloc0 : RAT[ai];
                 snap_tail <= snap_tail + 4'd1;
             end
             if (dsp0_en && d0_has_pdst) RAT[d0_rd] <= alloc0;
             if (dsp1_en && d1_has_pdst) RAT[d1_rd] <= alloc1;
+        end
+    end
+
+    always @(posedge clock) begin
+        if (dsp0_en && dsp0_need_snap) begin
+            for (ai = 0; ai < 32; ai = ai + 1)
+                snap_rat[snap_tail[2:0]][ai] <=
+                    (d0_has_pdst && (d0_rd == ai[4:0])) ? alloc0 : RAT[ai];
+        end else if (dsp1_en && dsp1_need_snap) begin
+            for (ai = 0; ai < 32; ai = ai + 1)
+                snap_rat[snap_tail[2:0]][ai] <=
+                    (d1_has_pdst && (d1_rd == ai[4:0])) ? alloc1 :
+                    (d0_has_pdst && (d0_rd == ai[4:0])) ? alloc0 : RAT[ai];
         end
     end
 
@@ -1238,34 +1246,37 @@ module student_top (
     wire [4:0] mob_dt   = mob_tail - mob_head;
     wire       mob_snap_behind = (mob_dh > mob_dt);
 
+    // mob_head / mob_tail 与 MOB 数组分开，避免 flush 作为整个数组的 mux 选择
     always @(posedge clock) begin
-        if (reset) begin
-            mob_head <= 5'd0;
-            mob_tail <= 5'd0;
-        end else begin
-            if (iss0_fire && iss0_is_store) begin
-                mob_addr[iss0_mob_ptr[3:0]]     <= iss0_op1 + iss0_imm;
-                mob_data[iss0_mob_ptr[3:0]]     <= iss0_op2;
-                mob_f3[iss0_mob_ptr[3:0]]       <= iss0_f3;
-                mob_addr_rdy[iss0_mob_ptr[3:0]] <= 1'b1;
-            end
-            if (issL_fire)           mob_head <= mob_head + 5'd1;
-            else if (st_commit_done) mob_head <= mob_head + 5'd1;
-            if (flush) begin
-                mob_tail <= mob_snap_behind ? mob_head : mob_snap;
-            end else begin
-                if (dsp0_en && d0_mem) begin
-                    mob_tag[mob_tail[3:0]]      <= rob_tail[4:0];
-                    mob_is_store[mob_tail[3:0]] <= d0_store;
-                    mob_addr_rdy[mob_tail[3:0]] <= 1'b0;
-                end
-                if (dsp1_en && d1_mem) begin
-                    mob_tag[mob_tail[3:0] + {3'b0, d0_mem}]      <= rob_tail[4:0] + 5'd1;
-                    mob_is_store[mob_tail[3:0] + {3'b0, d0_mem}] <= d1_store;
-                    mob_addr_rdy[mob_tail[3:0] + {3'b0, d0_mem}] <= 1'b0;
-                end
-                mob_tail <= mob_tail + {3'b0, (dsp0_en && d0_mem)} + {3'b0, (dsp1_en && d1_mem)};
-            end
+        if (reset)               mob_head <= 5'd0;
+        else if (issL_fire)      mob_head <= mob_head + 5'd1;
+        else if (st_commit_done) mob_head <= mob_head + 5'd1;
+    end
+
+    always @(posedge clock) begin
+        if (reset)     mob_tail <= 5'd0;
+        else if (flush) mob_tail <= mob_snap_behind ? mob_head : mob_snap;
+        else            mob_tail <= mob_tail + {3'b0, (dsp0_en && d0_mem)} +
+                                             {3'b0, (dsp1_en && d1_mem)};
+    end
+
+    // MOB 数组写入不做 flush 选择；flush 回滚后落在 tail 之外的项会被后续覆盖
+    always @(posedge clock) begin
+        if (iss0_fire && iss0_is_store) begin
+            mob_addr[iss0_mob_ptr[3:0]]     <= iss0_op1 + iss0_imm;
+            mob_data[iss0_mob_ptr[3:0]]     <= iss0_op2;
+            mob_f3[iss0_mob_ptr[3:0]]       <= iss0_f3;
+            mob_addr_rdy[iss0_mob_ptr[3:0]] <= 1'b1;
+        end
+        if (dsp0_en && d0_mem) begin
+            mob_tag[mob_tail[3:0]]      <= rob_tail[4:0];
+            mob_is_store[mob_tail[3:0]] <= d0_store;
+            mob_addr_rdy[mob_tail[3:0]] <= 1'b0;
+        end
+        if (dsp1_en && d1_mem) begin
+            mob_tag[mob_tail[3:0] + {3'b0, d0_mem}]      <= rob_tail[4:0] + 5'd1;
+            mob_is_store[mob_tail[3:0] + {3'b0, d0_mem}] <= d1_store;
+            mob_addr_rdy[mob_tail[3:0] + {3'b0, d0_mem}] <= 1'b0;
         end
     end
 
@@ -1291,17 +1302,21 @@ module student_top (
     wire q_clear = flush || pop_redirect;
 
     integer qi;
+
+    // pc_f 独立成块：flush 只驱动 pc_f 的 32 个 mux，不再扇出到整个队列
+    always @(posedge clock) begin
+        if (reset)                 pc_f <= 32'b0;
+        else if (flush)            pc_f <= flush_target;
+        else if (pop_redirect)     pc_f <= pop_red_target;
+        else if (can_issue_read)   pc_f <= pc_f_next;
+    end
+
+    // pend + 取指队列：由 q_clear 控制；与 flush 的 pc_f 分支分离
     always @(posedge clock) begin
         if (reset) begin
-            pc_f    <= 32'b0;
             pend_v  <= 1'b0;
             q_cnt   <= 3'd0;
         end else begin
-            // ---- pc_f ----
-            if (flush)                 pc_f <= flush_target;
-            else if (pop_redirect)     pc_f <= pop_red_target;
-            else if (can_issue_read)   pc_f <= pc_f_next;
-
             // ---- pend ----
             if (q_clear) begin
                 pend_v <= 1'b0;
