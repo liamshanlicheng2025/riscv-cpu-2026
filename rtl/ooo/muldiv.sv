@@ -30,6 +30,13 @@ module muldiv #(
   logic [63:0] product;
   logic grant_new_mul;
 
+  // 乘法输入打一拍，切断 issue/forwarding -> 32x32 multiplier -> result queue 的长路径。
+  logic mul_req_valid_q;
+  logic [5:0] mul_req_op_q;
+  logic [31:0] mul_req_a_q,mul_req_b_q;
+  logic [TAG_BITS-1:0] mul_req_tag_q;
+  wire [TAG_BITS-1:0] mul_req_owner=mul_req_tag_q[TAG_BITS-1:0];
+
   logic div_busy_q,div_done_q;
   (* keep *) logic [TAG_BITS-1:0] div_tag_q;
   (* keep *) logic [31:0] quotient_q,divisor_q,div_result_q;
@@ -80,7 +87,7 @@ module muldiv #(
   assign mul_ready1=!mul_remaining[1] || mul_ready2;
   assign mul_ready0=!mul_remaining[0] || mul_ready1;
   // Scheduler hints describe unit capacity before a request opcode/tag is chosen.
-  assign mul_ready=!rst && !kill && mul_ready0;
+  assign mul_ready=!rst && !kill && !mul_req_valid_q && mul_ready0;
   // Reopen the launch slot after its pending result has left the divider.
   // This removes output arbitration and response backpressure from the
   // operand/cache write enables. Cancellation releases the slot on the edge.
@@ -89,11 +96,11 @@ module muldiv #(
     ((request_mul && mul_ready) || (request_div && div_ready));
   // Fresh requests affect only the registered output/data inputs, never the
   // structural ready hints or arbitration of already-buffered results.
-  assign grant_new_mul=out_space && !grant_mul && !grant_div && req_valid && req_ready && request_mul;
-  assign product=req_a*req_b;
-  assign correction_a=req_a[31] && (req_op==OP_MULH || req_op==OP_MULHSU) ? req_b:32'd0;
-  assign correction_b=req_b[31] && req_op==OP_MULH ? req_a:32'd0;
-  assign mul_computed=req_op==OP_MUL ? product[31:0] : product[63:32]-correction_a-correction_b;
+  assign grant_new_mul=out_space && !grant_mul && !grant_div && mul_req_valid_q && !active_kill[mul_req_owner];
+  assign product=mul_req_a_q*mul_req_b_q;
+  assign correction_a=mul_req_a_q[31] && (mul_req_op_q==OP_MULH || mul_req_op_q==OP_MULHSU) ? mul_req_b_q:32'd0;
+  assign correction_b=mul_req_b_q[31] && mul_req_op_q==OP_MULH ? mul_req_a_q:32'd0;
+  assign mul_computed=mul_req_op_q==OP_MUL ? product[31:0] : product[63:32]-correction_a-correction_b;
   assign cache_hit=ENABLE_DIV_CACHE!=0 && cache_valid_q && cache_a_q==req_a && cache_b_q==req_b && cache_signed_q==signed_divide;
   assign completed_quotient=quotient_negative_q ? (~quotient_next+32'd1) : quotient_next;
   assign completed_remainder=remainder_negative_q ? (~remainder_next[31:0]+32'd1) : remainder_next[31:0];
@@ -144,7 +151,7 @@ module muldiv #(
         end else if(grant_mul) begin
           out_result_q<=mul_result_q[mul_head];out_tag_q<=mul_tag_q[mul_head];prefer_div_q<=1;
         end else if(grant_new_mul) begin
-          out_result_q<=mul_computed;out_tag_q<=req_owner;prefer_div_q<=1;
+          out_result_q<=mul_computed;out_tag_q<=mul_req_owner;prefer_div_q<=1;
         end
       end
 
@@ -161,11 +168,24 @@ module muldiv #(
         end
       end
       if(mul_ready0) begin
-        mul_valid_q[0]<=req_valid && req_ready && request_mul && !grant_new_mul;
-        if(req_valid && req_ready && request_mul && !grant_new_mul) begin
-          mul_tag_q[0]<=req_owner;mul_result_q[0]<=mul_computed;
+        mul_valid_q[0]<=mul_req_valid_q && !active_kill[mul_req_owner] && !grant_new_mul;
+        if(mul_req_valid_q && !active_kill[mul_req_owner] && !grant_new_mul) begin
+          mul_tag_q[0]<=mul_req_owner;mul_result_q[0]<=mul_computed;
         end
       end
+
+      // 采样新的乘法请求；结果在下一拍从 mul_req_*_q 计算。
+      if(req_valid && req_ready && request_mul) begin
+        mul_req_valid_q<=1'b1;
+        mul_req_op_q<=req_op;
+        mul_req_a_q<=req_a;
+        mul_req_b_q<=req_b;
+        mul_req_tag_q<=req_owner;
+      end
+      if(mul_req_valid_q &&
+         (active_kill[mul_req_owner] || grant_new_mul ||
+          (mul_ready0 && !grant_new_mul)))
+        mul_req_valid_q<=1'b0;
 
       if(active_kill[div_tag_q]) begin div_busy_q<=0;div_done_q<=0;end
       if(grant_div) div_done_q<=0;
@@ -221,7 +241,7 @@ module muldiv #(
     // Resetting hundreds of unobservable data bits creates a shared long path.
     if(rst || kill) begin
       mul_valid_q<=0;div_busy_q<=0;div_done_q<=0;cache_valid_q<=0;
-      out_valid_q<=0;prefer_div_q<=1;
+      out_valid_q<=0;prefer_div_q<=1;mul_req_valid_q<=0;
     end
 
   end
