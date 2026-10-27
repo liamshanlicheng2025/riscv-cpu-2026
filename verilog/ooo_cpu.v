@@ -2788,6 +2788,9 @@ module v2_frontend (
 	wire [LINES - 1:0] tag_valid;
 	wire [7:0] valid_words [0:LINES - 1];
 	wire [7:0] failed_words [0:LINES - 1];
+	reg [7:0] line_words_q;
+	reg [7:0] line_failed_q;
+	reg [LB - 1:0] line_q;
 	reg busy;
 	reg [31:0] fill_line;
 	reg [2:0] critical;
@@ -3055,6 +3058,9 @@ module v2_frontend (
 		odd_read_valid <= !rst && !odd_write;
 		even_read_index <= next_even_index;
 		odd_read_index <= next_odd_index;
+		line_words_q <= valid_words[next_even_index[CB - 1:5]];
+		line_failed_q <= failed_words[next_even_index[CB - 1:5]];
+		line_q <= next_even_index[CB - 1:5];
 		fill_bypass <= cache_write;
 		if (cache_write) begin
 			fill_bypass_index <= return_address[CB - 1:2];
@@ -3098,8 +3104,12 @@ module v2_frontend (
 	generate
 		for (_gv_p_2 = 0; _gv_p_2 < 2; _gv_p_2 = _gv_p_2 + 1) begin : predict
 			localparam p = _gv_p_2;
-			assign word_ready[p] = (((fill_bypass && (fill_bypass_index == fetch_pc[p][CB - 1:2])) || (fetch_pc[p][2] ? odd_read_valid && (odd_read_index == odd_index) : even_read_valid && (even_read_index == even_index))) && line_hit) && (valid_words[fetch_line][fetch_pc[p][4:2]] || failed_words[fetch_line][fetch_pc[p][4:2]]);
-			assign word_error[p] = failed_words[fetch_line][fetch_pc[p][4:2]];
+			wire bypass_word = fill_bypass && (fill_bypass_index == fetch_pc[p][CB - 1:2]);
+			wire line_ok = line_q == fetch_line;
+			wire [7:0] words_mask = line_ok ? line_words_q : valid_words[fetch_line];
+			wire [7:0] fail_mask = line_ok ? line_failed_q : failed_words[fetch_line];
+			assign word_ready[p] = (((bypass_word || (fetch_pc[p][2] ? odd_read_valid && (odd_read_index == odd_index) : even_read_valid && (even_read_index == even_index))) && line_hit) && (bypass_word || (words_mask[fetch_pc[p][4:2]] || fail_mask[fetch_pc[p][4:2]])));
+			assign word_error[p] = !bypass_word && fail_mask[fetch_pc[p][4:2]];
 			assign fetch_history[p] = (LOCAL_HISTORY_BITS == 0 ? {HB {1'sb0}} : local_history[fetch_pc[p][HI + 1:2]]);
 			assign fetch_bht[p] = (LOCAL_HISTORY_BITS == 0 ? fetch_pc[p][BW + 1:2] : (fetch_pc[p][BW + 1:2] << LOCAL_HISTORY_BITS) | sv2v_cast_F35F2(fetch_history[p]));
 			always @* begin

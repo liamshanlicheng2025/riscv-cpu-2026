@@ -63,6 +63,8 @@ module v2_frontend #(
   logic [31:CB] tags [LINES];
   logic [LINES-1:0] tag_valid;
   logic [7:0] valid_words [LINES],failed_words [LINES];
+  logic [7:0] line_words_q,line_failed_q;
+  logic [LB-1:0] line_q;
   logic busy;
   logic [31:0] fill_line;
   logic [2:0] critical;
@@ -238,9 +240,14 @@ module v2_frontend #(
   assign fetch_line=pc[CB-1:5];
   assign line_hit=tag_valid[fetch_line] && tags[fetch_line]==pc[31:CB];
   for(genvar p=0;p<2;p=p+1) begin: predict
-    assign word_ready[p]=((fill_bypass && fill_bypass_index==fetch_pc[p][CB-1:2]) || (fetch_pc[p][2] ? (odd_read_valid && odd_read_index==odd_index):
-      (even_read_valid && even_read_index==even_index))) && line_hit && (valid_words[fetch_line][fetch_pc[p][4:2]] || failed_words[fetch_line][fetch_pc[p][4:2]]);
-    assign word_error[p]=failed_words[fetch_line][fetch_pc[p][4:2]];
+    wire bypass_word=fill_bypass && fill_bypass_index==fetch_pc[p][CB-1:2];
+    wire line_ok=line_q==fetch_line;
+    wire [7:0] words_mask=line_ok ? line_words_q : valid_words[fetch_line];
+    wire [7:0] fail_mask=line_ok ? line_failed_q : failed_words[fetch_line];
+    assign word_ready[p]=((bypass_word || (fetch_pc[p][2] ? (odd_read_valid && odd_read_index==odd_index):
+      (even_read_valid && even_read_index==even_index))) && line_hit) &&
+      (bypass_word || (words_mask[fetch_pc[p][4:2]] || fail_mask[fetch_pc[p][4:2]]));
+    assign word_error[p]=!bypass_word && fail_mask[fetch_pc[p][4:2]];
     assign fetch_history[p]=LOCAL_HISTORY_BITS==0 ? '0:local_history[fetch_pc[p][HI+1:2]];
     assign fetch_bht[p]=LOCAL_HISTORY_BITS==0 ? fetch_pc[p][BW+1:2]:
       (fetch_pc[p][BW+1:2]<<LOCAL_HISTORY_BITS) | BW'(fetch_history[p]);

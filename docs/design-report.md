@@ -121,6 +121,36 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 原始记录保存在 `results/mdu-pipeline/`。当前关键路径已不在乘法器内部，
 继续冲 400 MHz 需要继续优化 issue/select 与写回选择网络。
 
+
+## 后续优化：前端 word/failed mask 流水（2026-10-27）
+
+把 I-Cache 的 `valid_words` / `failed_words` 行掩码提前一拍读入寄存器，并在
+`word_ready` / `word_error` 中使用寄存器化掩码；当行号不匹配或 fill bypass 时
+回退到组合路径，保证正确性。这样把 `fetch_pc → 32:1 行选择 → 8:1 字选择`
+的大扇出读路径移出关键路径。
+
+| 项目 | MDU 流水后 | 前端 mask 流水后 |
+| --- | ---: | ---: |
+| 总面积 | 11,522.849 µm² | 11,507.526 µm² |
+| 组合逻辑 | 6,687.554 µm² | 6,667.565 µm² |
+| 时序逻辑 | 3,803.339 µm² | 3,808.004 µm² |
+| SRAM | 1,031.956 µm² | 1,031.956 µm² |
+| 估计最高频率 | 318.90 MHz | **332.79 MHz** |
+| 最小周期 | 3.1357 ns | 3.0049 ns |
+| 2 ns 目标下 WNS | -1.1351 ns | -1.0041 ns |
+
+验证：
+
+- 官方正确性 19/19
+- 官方性能 IPC 几何平均 1.1837（不变）
+- 定向 RV32IM/地址范围回归 108/108（延迟 1、10、20）
+- `make code` OJ 冒烟通过
+
+原始记录保存在 `results/mask-pipeline/`。当前关键路径转到
+`address_selection` / AGU 地址选择，继续冲 400 MHz 需要进一步流水化该路径。
+曾尝试 `LSU_PIPELINE=1`（频率 301.89 MHz、IPC 1.0953）和 `Q_DEPTH=2`
+（频率 305.31 MHz、IPC 1.1411），均回退。
+
 ## 参数敏感性
 
 固定最终源码及默认参数，每个变体独立生成 Verilog、构建仿真器，执行官方 19 项正确性、
@@ -164,7 +194,7 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 参数实验：`python3 rtl/sweep.py`，不会覆盖默认 Verilog。
 
 默认生成 RTL 的 SHA-256：
-`ee5ae7254484b671fa408f0e0ccadb4b08b7e41364d24be9ca38245f52f788ad`。
+`3dd007be4f1b450e3f8bf38871243e3789da28ca9dec1aa4a65113ed3e3192b3`。
 最终综合报告记录同一哈希。可读源码和生成器哈希见
 [`ooo_cpu.metadata.json`](../verilog/ooo_cpu.metadata.json)。
 原始测试输出、综合 JSON/文本和验证清单保存在 [results](results/)。
