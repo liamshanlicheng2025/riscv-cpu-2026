@@ -1,0 +1,17 @@
+Synthesis mode: opt (flattened and optimized)
+
+Total area:           12,912.978 um^2
+  Combinational:      7,178.011 um^2
+  Sequential:         4,015.040 um^2
+  SRAM:               1,719.927 um^2
+
+Estimated frequency:  262.97 MHz
+Minimum period:       3.8027 ns
+Clock target:         2.000 ns
+Worst setup slack:    -1.8027 ns
+
+Critical path:
+  cpu.address_selection/_16_/QN
+    -> cpu.dcache.data_banks[0].data_ram.lane_0/addr_in[6]
+
+Reports: /mnt/d/cpu/RISC-V-CPU-2026/build/banks8/synth/opt/report.txt, report.json, timing.rpt

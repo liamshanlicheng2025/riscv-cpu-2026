@@ -1,0 +1,4 @@
+PASS directed RV32IM/full-address regressions latency=1
+PASS directed RV32IM/full-address regressions latency=10
+PASS directed RV32IM/full-address regressions latency=20
+108 regressions passed

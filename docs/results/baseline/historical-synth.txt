@@ -1,0 +1,17 @@
+Synthesis mode: opt (flattened and optimized)
+
+Total area:           17,934.329 um^2
+  Combinational:      5,403.479 um^2
+  Sequential:         4,210.704 um^2
+  SRAM:               8,320.146 um^2
+
+Estimated frequency:  77.17 MHz
+Minimum period:       12.9580 ns
+Clock target:         2.000 ns
+Worst setup slack:    -10.9574 ns
+
+Critical path:
+  _161885_/QN
+    -> _161157_/D
+
+Reports: /mnt/d/cpu/RISC-V-CPU-2026/build/synth/opt/report.txt, report.json, timing.rpt

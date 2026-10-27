@@ -1,0 +1,12 @@
+PASS AXI seed=1 latency=3 split=92 cycles=510
+PASS AXI seed=19 latency=3 split=104 cycles=511
+PASS AXI seed=71 latency=3 split=88 cycles=511
+PASS AXI seed=139 latency=3 split=112 cycles=511
+PASS AXI seed=1 latency=20 split=104 cycles=525
+PASS AXI seed=19 latency=20 split=96 cycles=524
+PASS AXI seed=71 latency=20 split=104 cycles=524
+PASS AXI seed=139 latency=20 split=88 cycles=524
+PASS AXI seed=1 latency=97 split=92 cycles=1403
+PASS AXI seed=19 latency=97 split=92 cycles=1392
+PASS AXI seed=71 latency=97 split=104 cycles=1410
+PASS AXI seed=139 latency=97 split=102 cycles=1399

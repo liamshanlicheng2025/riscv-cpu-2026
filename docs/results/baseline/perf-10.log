@@ -1,0 +1,8 @@
+benchmark                  instructions       cycles        IPC
+perf_median                        6961        13469     0.5168
+perf_multiply                     21722        37511     0.5791
+perf_qsort                       139900       229774     0.6089
+perf_rsort                       195719       227327     0.8610
+perf_towers                        5278         7908     0.6674
+perf_vvadd                         4524         7576     0.5971
+GEOMEAN                                                  0.6300
