@@ -5,15 +5,15 @@
 
 ## 版本保留
 
-| 版本 | Git 分支 | 工作目录 |
-| --- | --- | --- |
-| 单发射、顺序五级流水 | `baseline/inorder-single-issue`，起点 `ff5ac8a` | `D:\cpu\RISC-V-CPU-2026-inorder` |
-| 本轮优化实现 | `feat/ooo-optimized` | `D:\cpu\RISC-V-CPU-2026` |
+| 内容 | 位置 |
+| --- | --- |
+| OJ 提交版（当前 `main`） | `verilog/ooo_cpu.v`、`rtl/ooo/` |
+| 完整实验日志、参数扫描、旧 RTL 与历史文档 | `archive/main-pre-oj` 分支 |
+| 单发射、顺序五级流水起点 | `ff5ac8a` |
 
-创建优化分支前，`main` 已经位于 `f10f8e4`，包含旧的乱序 CPU；本轮不移动 main，不重写其历史。
-原目录中已有的 `verilog_pipeline_baseline/` 也保留，不将其中用户已有的未跟踪文件混入优化提交。
-优化分支的 `verilog/filelist_legacy.f` 选择的是本轮修改前的旧乱序核心；
-需要最初的顺序核心时，使用上表的独立 baseline 分支和目录。
+`main` 只保留 OJ 构建所需文件、可复现的 SystemVerilog 源码与设计报告；
+生成结果、`packaging/`、旧 RTL 和基线文档已从 `main` 移除，
+但仍完整保存在 `archive/main-pre-oj` 分支。
 
 ## 实现与取舍
 
@@ -118,7 +118,7 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 - 定向 RV32IM/地址范围回归 108/108（延迟 1、10、20）
 - `make code` OJ 冒烟通过
 
-原始记录保存在 `results/mdu-pipeline/`。当前关键路径已不在乘法器内部，
+原始记录归档于 `archive/main-pre-oj` 分支的 `results/mdu-pipeline/`。当前关键路径已不在乘法器内部，
 继续冲 400 MHz 需要继续优化 issue/select 与写回选择网络。
 
 
@@ -146,7 +146,7 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 - 定向 RV32IM/地址范围回归 108/108（延迟 1、10、20）
 - `make code` OJ 冒烟通过
 
-原始记录保存在 `results/mask-pipeline/`。当前关键路径转到
+原始记录归档于 `archive/main-pre-oj` 分支的 `results/mask-pipeline/`。当前关键路径转到
 `address_selection` / AGU 地址选择，继续冲 400 MHz 需要进一步流水化该路径。
 曾尝试 `LSU_PIPELINE=1`（频率 301.89 MHz、IPC 1.0953）和 `Q_DEPTH=2`
 （频率 305.31 MHz、IPC 1.1411），均回退。
@@ -154,7 +154,7 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 ## 参数敏感性
 
 固定最终源码及默认参数，每个变体独立生成 Verilog、构建仿真器，执行官方 19 项正确性、
-6 项性能及延迟 10 的 36 项定向回归。结果保存在 `results/parameters/`。
+6 项性能及延迟 10 的 36 项定向回归。结果归档于 `archive/main-pre-oj` 分支的 `results/parameters/`。
 单路配置同时将分派、退休、整数端口设为 1；它是整体吞吐配置对比，并非单独控制一个变量。
 
 | 配置 | IPC 几何平均，延迟 10 |
@@ -171,7 +171,7 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 
 ## 架构探索记录
 
-以下是本轮阶段性实测，原始综合摘要保存于 `results/exploration/`。
+以下是本轮阶段性实测，原始综合摘要归档于 `archive/main-pre-oj` 分支的 `results/exploration/`。
 不同阶段的结果只能解释本轮取舍，不能替代最终默认源码的报告。
 
 | 配置 | 面积 µm² | 频率 MHz | IPC，延迟 10 |
@@ -197,6 +197,6 @@ AXI 测试检查 AR/AW/W 在背压期间保持稳定、AW/W 分离接收、响�
 `3dd007be4f1b450e3f8bf38871243e3789da28ca9dec1aa4a65113ed3e3192b3`。
 最终综合报告记录同一哈希。可读源码和生成器哈希见
 [`ooo_cpu.metadata.json`](../verilog/ooo_cpu.metadata.json)。
-原始测试输出、综合 JSON/文本和验证清单保存在 [results](results/)。
-`results/baseline/historical-synth.txt` 是仓库原已有的旧综合报告，本轮没有重新综合该旧核心，
+原始测试输出、综合 JSON/文本和验证清单归档于 `archive/main-pre-oj` 分支。
+其中的 `results/baseline/historical-synth.txt` 是仓库原已有的旧综合报告，本轮没有重新综合该旧核心，
 不能把它作为本轮在完全相同工具环境下重新测得的基线。

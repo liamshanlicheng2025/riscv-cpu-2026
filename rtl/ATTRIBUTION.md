@@ -27,7 +27,7 @@
 
 `verilog/ooo_cpu.v` 是上述 SystemVerilog 生成的课程提交文件。
 `ooo_cpu.metadata.json` 记录输入、生成器及输出 SHA-256。
-官方 `scripts/`、内存模型和测试用例未修改。旧 CPU 源码保留在 `verilog/`，
-可通过 `verilog/filelist_legacy.f` 选择；它与新的默认实现分别编译，不会重复定义顶层。
+官方 `scripts/`、内存模型和测试用例未修改。旧 CPU 源码已从 `main` 移除，
+完整保存在 `archive/main-pre-oj` 分支。
 
 上游 README 的成绩不能直接视为本地成绩。本地结果必须以同一份生成 RTL 的官方仿真和综合为准。

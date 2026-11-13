@@ -5,9 +5,9 @@
 [![Synthesis: Yosys + ASAP7](https://img.shields.io/badge/synthesis-Yosys%20%2B%20ASAP7-f39c12)](https://yosyshq.net/yosys/)
 [![Bus: AXI4--Lite](https://img.shields.io/badge/bus-AXI4--Lite-green)](docs/axi4-lite.md)
 
-[English](README-EN.md) | [简体中文](README-ZH.md)
+[项目 README](../README.md)
 
-> 开始编写你的 CPU 时，请用你自己的 README 替换本文档。
+> 本文档保留课程原始要求，供实现与提交时对照。
 
 ## 快速上手
 
